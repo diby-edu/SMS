@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 
 /**
  * GET /api/historique
@@ -33,14 +34,14 @@ export async function GET(req: NextRequest) {
   }
 
   // ---- Requêtes messages ----
-  const messageWhere: Parameters<typeof prisma.message.findMany>[0]['where'] = {
+  const messageWhere: Prisma.MessageWhereInput = {
     user_id: userId,
     ...(statut && { statut: statut as 'PENDING' | 'SENT' | 'DELIVERED' | 'FAILED' }),
     ...(Object.keys(dateFilter).length > 0 && { created_at: dateFilter }),
   }
 
   // ---- Requêtes campagnes ----
-  const campaignWhere: Parameters<typeof prisma.campaign.findMany>[0]['where'] = {
+  const campaignWhere: Prisma.CampaignWhereInput = {
     user_id: userId,
     ...(Object.keys(dateFilter).length > 0 && { created_at: dateFilter }),
   }

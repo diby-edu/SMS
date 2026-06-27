@@ -73,7 +73,7 @@ export const authOptions: NextAuthOptions = {
       // Première connexion : on hydrate le token depuis l'objet user
       if (user) {
         token.id = user.id
-        token.role = (user as { role: string }).role
+        token.role = (user as { role: 'ADMIN' | 'CLIENT' }).role
         token.solde_sms = (user as { solde_sms: number }).solde_sms
       }
 
@@ -105,7 +105,7 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (token) {
         session.user.id = token.id as string
-        session.user.role = token.role as string
+        session.user.role = token.role as 'ADMIN' | 'CLIENT'
         session.user.solde_sms = token.solde_sms as number
       }
       return session
