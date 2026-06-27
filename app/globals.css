@@ -1,0 +1,194 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   VARIABLES CSS GLOBALES
+   ============================================================ */
+:root {
+  --background: #0A0A0F;
+  --surface: #111118;
+  --border: #1E1E2E;
+  --primary: #00D4FF;
+  --secondary: #10B981;
+  --foreground: #FFFFFF;
+  --foreground-muted: #94A3B8;
+  --danger: #EF4444;
+  --warning: #F59E0B;
+}
+
+/* ============================================================
+   BASE
+   ============================================================ */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-dm-sans), system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+/* ============================================================
+   SCROLLBAR PERSONNALISÉE
+   ============================================================ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #2D2D42;
+}
+
+/* ============================================================
+   SÉLECTION DE TEXTE
+   ============================================================ */
+::selection {
+  background-color: rgba(0, 212, 255, 0.2);
+  color: #ffffff;
+}
+
+/* ============================================================
+   COMPOSANTS UTILITAIRES
+   ============================================================ */
+@layer components {
+  /* Carte principale */
+  .card {
+    @apply bg-surface border border-border rounded-xl p-6;
+  }
+
+  /* Bouton primaire */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2
+           bg-primary text-background font-semibold
+           px-4 py-2.5 rounded-lg text-sm
+           hover:bg-primary-hover
+           disabled:opacity-50 disabled:cursor-not-allowed
+           transition-all duration-200;
+  }
+
+  /* Bouton secondaire */
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2
+           bg-border text-foreground font-medium
+           px-4 py-2.5 rounded-lg text-sm
+           hover:bg-[#252535]
+           disabled:opacity-50 disabled:cursor-not-allowed
+           transition-all duration-200;
+  }
+
+  /* Bouton danger */
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2
+           bg-danger/10 text-danger font-medium
+           px-4 py-2.5 rounded-lg text-sm
+           hover:bg-danger/20
+           disabled:opacity-50 disabled:cursor-not-allowed
+           transition-all duration-200;
+  }
+
+  /* Champ de formulaire */
+  .input {
+    @apply w-full bg-surface border border-border rounded-lg
+           px-3.5 py-2.5 text-sm text-foreground
+           placeholder:text-foreground-subtle
+           focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30
+           disabled:opacity-50 disabled:cursor-not-allowed
+           transition-colors duration-200;
+  }
+
+  /* Label de formulaire */
+  .label {
+    @apply block text-sm font-medium text-foreground-muted mb-1.5;
+  }
+
+  /* Badge de statut */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5
+           rounded-full text-xs font-medium;
+  }
+
+  /* Titre de section (police Syne) */
+  .heading {
+    @apply font-syne font-bold tracking-tight;
+  }
+
+  /* Séparateur */
+  .divider {
+    @apply border-t border-border my-4;
+  }
+}
+
+/* ============================================================
+   ANIMATIONS PERSONNALISÉES
+   ============================================================ */
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+
+  .glow-primary {
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.2);
+  }
+
+  .glow-secondary {
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* ============================================================
+   RECHARTS — Override pour thème sombre
+   ============================================================ */
+.recharts-cartesian-axis-tick-value {
+  fill: #94A3B8 !important;
+  font-size: 12px;
+}
+
+.recharts-tooltip-wrapper .recharts-default-tooltip {
+  background-color: #111118 !important;
+  border-color: #1E1E2E !important;
+  border-radius: 8px !important;
+}
+
+/* ============================================================
+   REACT-HOT-TOAST — Override pour thème sombre
+   ============================================================ */
+.react-hot-toast > div {
+  background: #111118 !important;
+  color: #ffffff !important;
+  border: 1px solid #1E1E2E !important;
+}
