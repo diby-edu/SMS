@@ -23,6 +23,7 @@ const campaignSchema = z.object({
     .array(z.object({ phone: z.string().min(8) }).catchall(z.string()))
     .optional(),
   group_id: z.string().optional(),
+  scheduled_at: z.string().optional(), // ISO 8601 — programmation de la campagne
 })
 
 // ============================================================
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const { label, sender, content, group_id } = result.data
+    const { label, sender, content, group_id, scheduled_at } = result.data
     const userId = session.user.id
 
     // Résolution des contacts (tableau direct ou depuis un groupe)
@@ -120,6 +121,7 @@ export async function POST(req: NextRequest) {
         sender,
         contacts,
         content,
+        ...(scheduled_at && { scheduledAt: scheduled_at }),
       })
 
       await prisma.campaign.update({

@@ -12,14 +12,15 @@ import {
   Users,
   PenLine,
   ChevronDown,
+  BookMarked,
+  Calendar,
+  Save,
+  FolderOpen,
+  X,
 } from 'lucide-react'
 import Link from 'next/link'
 import Button from '@/components/ui/Button'
 import { cn, getSMSPartCount, formatFCFA } from '@/lib/utils'
-
-// ============================================================
-// CONSTANTES
-// ============================================================
 
 // ============================================================
 // TYPES
@@ -37,7 +38,14 @@ interface ContactList {
   _count: { contacts: number }
 }
 
+interface MessageTemplate {
+  name: string
+  content: string
+}
+
 type Source = 'manuel' | 'groupe'
+
+const TEMPLATES_KEY = 'textopro_sms_templates'
 
 // ============================================================
 // HELPERS
@@ -53,11 +61,22 @@ function parseManualNumbers(input: string): { phone: string }[] {
       let phone = cleaned
       if (!phone.startsWith('+')) {
         if (phone.startsWith('00')) phone = '+' + phone.slice(2)
-        // Si le numéro ne commence pas par +, on garde tel quel (validation échouera si trop court)
       }
       return { phone }
     })
     .filter((c) => c.phone.startsWith('+') && c.phone.length >= 10)
+}
+
+function loadTemplates(): MessageTemplate[] {
+  try {
+    return JSON.parse(localStorage.getItem(TEMPLATES_KEY) || '[]')
+  } catch {
+    return []
+  }
+}
+
+function saveTemplates(templates: MessageTemplate[]) {
+  localStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates))
 }
 
 // ============================================================
@@ -80,7 +99,14 @@ export default function SMSPage() {
   const [manuelInput, setManuelInput] = useState('')
   const [groupId, setGroupId] = useState('')
   const [content, setContent] = useState('')
+  const [scheduledAt, setScheduledAt] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  // ---- Templates ----
+  const [templates, setTemplates] = useState<MessageTemplate[]>([])
+  const [showTemplateSave, setShowTemplateSave] = useState(false)
+  const [templateName, setTemplateName] = useState('')
+  const [showTemplateLoad, setShowTemplateLoad] = useState(false)
 
   // ---- Résultat ----
   const [loading, setLoading] = useState(false)
@@ -89,11 +115,8 @@ export default function SMSPage() {
   const soldeSMS = session?.user?.solde_sms ?? 0
   const partCount = getSMSPartCount(content)
 
-  // Calcul nb contacts
   const parsedContacts =
-    source === 'manuel'
-      ? parseManualNumbers(manuelInput)
-      : []
+    source === 'manuel' ? parseManualNumbers(manuelInput) : []
 
   const selectedGroup = contactLists.find((l) => l.id === groupId)
   const nbContacts =
@@ -123,7 +146,40 @@ export default function SMSPage() {
       setContactLists(listsData.lists || [])
       setPrixSMS(prixData.prix ?? 30)
     }).catch(() => {})
+
+    setTemplates(loadTemplates())
   }, [])
+
+  // ---- Gestion des modèles ----
+  const handleSaveTemplate = () => {
+    if (!content.trim()) {
+      toast.error('Le message est vide')
+      return
+    }
+    if (!templateName.trim()) {
+      toast.error('Donnez un nom au modèle')
+      return
+    }
+    const existing = templates.filter((t) => t.name !== templateName.trim())
+    const updated = [...existing, { name: templateName.trim(), content: content.trim() }]
+    saveTemplates(updated)
+    setTemplates(updated)
+    setShowTemplateSave(false)
+    setTemplateName('')
+    toast.success('Modèle enregistré')
+  }
+
+  const handleLoadTemplate = (t: MessageTemplate) => {
+    setContent(t.content)
+    setShowTemplateLoad(false)
+    toast.success(`Modèle "${t.name}" chargé`)
+  }
+
+  const handleDeleteTemplate = (name: string) => {
+    const updated = templates.filter((t) => t.name !== name)
+    saveTemplates(updated)
+    setTemplates(updated)
+  }
 
   // ---- Validation ----
   const validate = () => {
@@ -131,11 +187,15 @@ export default function SMSPage() {
     if (nbContacts > 1 && !label.trim()) errs.label = 'Nom requis pour un envoi multiple'
     if (!senderNom) errs.sender = 'Choisissez un expéditeur'
     if (source === 'manuel' && parsedContacts.length === 0)
-      errs.contacts = 'Saisissez au moins un numéro valide'
+      errs.contacts = 'Saisissez au moins un numéro valide avec indicatif (+225...)'
     if (source === 'groupe' && !groupId) errs.contacts = 'Sélectionnez un groupe'
     if (!content.trim()) errs.content = 'Le message est vide'
     if (soldeSMS < coutTotal)
       errs.solde = `Solde insuffisant (${soldeSMS} SMS disponibles, ${coutTotal} requis)`
+    if (scheduledAt) {
+      const date = new Date(scheduledAt)
+      if (date <= new Date()) errs.scheduledAt = 'La date de programmation doit être dans le futur'
+    }
     setErrors(errs)
     return Object.keys(errs).length === 0
   }
@@ -148,7 +208,6 @@ export default function SMSPage() {
   const handleSubmit = async () => {
     setLoading(true)
     try {
-      // SMS unique → API sms/send
       if (nbContacts === 1 && source === 'manuel') {
         const res = await fetch('/api/sms/send', {
           method: 'POST',
@@ -169,11 +228,11 @@ export default function SMSPage() {
         await updateSession({ solde_sms: data.solde_restant })
         toast.success('SMS envoyé avec succès !')
       } else {
-        // Envoi multiple → API campaigns
         const body: Record<string, unknown> = {
           label: label.trim() || `Envoi du ${new Date().toLocaleDateString('fr-FR')}`,
           sender: senderNom,
           content: content.trim(),
+          ...(scheduledAt && { scheduled_at: scheduledAt }),
         }
         if (source === 'groupe') {
           body.group_id = groupId
@@ -194,14 +253,17 @@ export default function SMSPage() {
         }
         setResult({ nb: data.nb_contacts, solde: data.solde_restant })
         await updateSession({ solde_sms: data.solde_restant })
-        toast.success(`${data.nb_contacts} SMS envoyés avec succès !`)
+        const msg = scheduledAt
+          ? `Campagne programmée pour le ${new Date(scheduledAt).toLocaleString('fr-FR')}`
+          : `${data.nb_contacts} SMS envoyés avec succès !`
+        toast.success(msg)
       }
 
-      // Reset
       setLabel('')
       setManuelInput('')
       setContent('')
       setGroupId('')
+      setScheduledAt('')
       setStep(1)
     } catch {
       toast.error('Erreur réseau. Veuillez réessayer.')
@@ -396,7 +458,7 @@ export default function SMSPage() {
                 <textarea
                   value={manuelInput}
                   onChange={(e) => setManuelInput(e.target.value)}
-                  placeholder={`Entrez les numéros avec indicatif pays\nEx: +2250707000001; +2210707000002\nUn numéro par ligne ou séparés par \";\"`}
+                  placeholder={`Entrez les numéros avec indicatif pays\nEx: +2250707000001; +2210707000002\nUn numéro par ligne ou séparés par ";"`}
                   rows={4}
                   className={cn(
                     'input resize-none font-mono text-sm',
@@ -462,9 +524,75 @@ export default function SMSPage() {
 
           {/* Message */}
           <div>
+            {/* Header message + actions modèles */}
             <div className="flex items-center justify-between mb-1.5">
               <label className="label mb-0">Message</label>
+              <div className="flex items-center gap-1.5">
+                {templates.length > 0 && (
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowTemplateLoad(!showTemplateLoad)}
+                      className="flex items-center gap-1 text-xs text-foreground-muted hover:text-primary transition-colors px-2 py-1 rounded-lg hover:bg-primary/10"
+                    >
+                      <FolderOpen className="w-3.5 h-3.5" />
+                      Charger
+                    </button>
+                    {showTemplateLoad && (
+                      <div className="absolute right-0 top-8 z-10 bg-surface border border-border rounded-xl shadow-lg p-2 min-w-48 space-y-1">
+                        {templates.map((t) => (
+                          <div key={t.name} className="flex items-center gap-2 group">
+                            <button
+                              type="button"
+                              onClick={() => handleLoadTemplate(t)}
+                              className="flex-1 text-left text-xs text-foreground px-2 py-1.5 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors truncate"
+                            >
+                              {t.name}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteTemplate(t.name)}
+                              className="opacity-0 group-hover:opacity-100 text-foreground-subtle hover:text-danger transition-all"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowTemplateSave(!showTemplateSave)}
+                  className="flex items-center gap-1 text-xs text-foreground-muted hover:text-primary transition-colors px-2 py-1 rounded-lg hover:bg-primary/10"
+                >
+                  <BookMarked className="w-3.5 h-3.5" />
+                  Enregistrer
+                </button>
+              </div>
             </div>
+
+            {/* Sauvegarde modèle inline */}
+            {showTemplateSave && (
+              <div className="flex gap-2 mb-2 animate-slide-up">
+                <input
+                  type="text"
+                  placeholder="Nom du modèle (ex: Promo été)"
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSaveTemplate()}
+                  className="input flex-1 text-sm py-1.5"
+                />
+                <Button type="button" size="sm" onClick={handleSaveTemplate} leftIcon={<Save className="w-3.5 h-3.5" />}>
+                  OK
+                </Button>
+                <Button type="button" size="sm" variant="secondary" onClick={() => setShowTemplateSave(false)}>
+                  <X className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            )}
+
             <div className="relative">
               <textarea
                 value={content}
@@ -498,6 +626,30 @@ export default function SMSPage() {
               <p className="mt-1.5 text-xs text-warning">
                 Message long : découpé en {partCount} SMS ({partCount} crédit{partCount > 1 ? 's' : ''} par destinataire)
               </p>
+            )}
+          </div>
+
+          {/* Programmation */}
+          <div>
+            <label className="label flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-foreground-subtle" />
+              Programmation{' '}
+              <span className="text-foreground-subtle font-normal">(optionnel — envoi immédiat si vide)</span>
+            </label>
+            <input
+              type="datetime-local"
+              value={scheduledAt}
+              onChange={(e) => setScheduledAt(e.target.value)}
+              min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+              className={cn('input', errors.scheduledAt && 'border-danger')}
+            />
+            {scheduledAt && !errors.scheduledAt && (
+              <p className="mt-1.5 text-xs text-secondary font-medium">
+                Envoi programmé le {new Date(scheduledAt).toLocaleString('fr-FR')}
+              </p>
+            )}
+            {errors.scheduledAt && (
+              <p className="mt-1.5 text-xs text-danger">⚠ {errors.scheduledAt}</p>
             )}
           </div>
 
@@ -559,6 +711,15 @@ export default function SMSPage() {
                   {formatFCFA(coutFCFA)}
                 </span>
               </div>
+              {scheduledAt && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-foreground-muted">Programmé le</span>
+                  <span className="text-sm font-semibold text-primary flex items-center gap-1">
+                    <Calendar className="w-3.5 h-3.5" />
+                    {new Date(scheduledAt).toLocaleString('fr-FR')}
+                  </span>
+                </div>
+              )}
               <div className="flex items-center justify-between border-t border-border pt-3">
                 <span className="text-sm text-foreground-muted">Solde après envoi</span>
                 <span
@@ -620,7 +781,11 @@ export default function SMSPage() {
               size="lg"
               leftIcon={<Send className="w-4 h-4" />}
             >
-              {nbContacts === 1 ? 'Envoyer le SMS' : `Envoyer à ${nbContacts} contacts`}
+              {scheduledAt
+                ? 'Programmer l\'envoi'
+                : nbContacts === 1
+                ? 'Envoyer le SMS'
+                : `Envoyer à ${nbContacts} contacts`}
             </Button>
           </div>
         </div>

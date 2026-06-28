@@ -51,6 +51,7 @@ export interface CreateCampaignParams {
   sender: string
   contacts: SMSCampaignContact[]
   content: string
+  scheduledAt?: string // ISO 8601, ex: "2026-07-15T10:00:00"
 }
 
 export interface CreateCampaignResponse {
@@ -119,6 +120,7 @@ export async function createSMSCampaign(
     sender: params.sender,
     contacts: params.contacts,
     content: params.content,
+    ...(params.scheduledAt && { scheduledAt: params.scheduledAt }),
   })
   return response.data
 }

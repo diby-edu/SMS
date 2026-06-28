@@ -40,11 +40,12 @@ export async function POST(req: NextRequest) {
     // Lire la config depuis la base pour le prix SMS et le montant minimum
     const appConfig = await prisma.appConfig.findFirst()
     const prixSMS = appConfig?.prix_sms_fcfa ?? 30
-    const montantMin = (appConfig as Record<string, unknown>)?.montant_minimum as number ?? 500
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const montantMin: number = (appConfig as any)?.montant_minimum ?? 500
 
     if (montantFCFA < montantMin) {
       return NextResponse.json(
-        { error: `Montant minimum : ${montantMin} FCFA` },
+        { error: `Montant minimum : ${montantMin.toLocaleString('fr-FR')} FCFA` },
         { status: 400 }
       )
     }
@@ -98,8 +99,9 @@ export async function POST(req: NextRequest) {
     })
   } catch (error) {
     console.error('[Recharge] Erreur:', error)
+    const msg = error instanceof Error ? error.message : 'Erreur inconnue'
     return NextResponse.json(
-      { error: 'Impossible de créer la facture de paiement. Réessayez.' },
+      { error: `Impossible de créer la facture : ${msg}` },
       { status: 500 }
     )
   }
@@ -108,7 +110,7 @@ export async function POST(req: NextRequest) {
 /**
  * GET /api/recharge — Historique des transactions de l'utilisateur
  */
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })

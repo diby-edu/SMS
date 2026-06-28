@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import {
-  Tag, CheckCircle2, XCircle, Clock, Loader2, ChevronDown, ChevronUp,
+  Tag, CheckCircle2, XCircle, Clock, Loader2, ChevronDown, ChevronUp, Download,
 } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { cn, formatDate, COUNTRY_PHONE_PREFIXES } from '@/lib/utils'
@@ -142,6 +142,16 @@ export default function AdminSendersPage() {
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
+                    {/* Export CSV */}
+                    <a
+                      href={`/api/admin/senders/${sender.id}/export`}
+                      download
+                      title="Exporter les infos du sender (CSV pour LeTexto)"
+                      className="text-foreground-subtle hover:text-primary transition-colors p-2 rounded-lg hover:bg-border"
+                    >
+                      <Download className="w-4 h-4" />
+                    </a>
+
                     {/* Bouton détails */}
                     <button
                       onClick={() => setExpandedId(expandedId === sender.id ? null : sender.id)}

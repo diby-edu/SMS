@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
-import { Settings, MessageSquare, Bell, Save, Loader2, Plus, Trash2, CreditCard } from 'lucide-react'
+import { MessageSquare, Bell, Save, Loader2, Plus, Trash2, CreditCard } from 'lucide-react'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { formatFCFA, fcfaToSMS } from '@/lib/utils'
@@ -24,6 +24,7 @@ export default function AdminConfigPage() {
     montants_rapides: [1000, 3000, 5000, 10000, 25000, 50000],
   })
   const [newMontant, setNewMontant] = useState('')
+  const [editingMontant, setEditingMontant] = useState<{ original: number; value: string } | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -99,6 +100,26 @@ export default function AdminConfigPage() {
     }))
   }
 
+  const startEditMontant = (val: number) => {
+    setEditingMontant({ original: val, value: String(val) })
+  }
+
+  const confirmEditMontant = () => {
+    if (!editingMontant) return
+    const newVal = parseInt(editingMontant.value)
+    if (!newVal || newVal < 100) {
+      toast.error('Montant invalide (minimum 100 FCFA)')
+      return
+    }
+    setForm((p) => ({
+      ...p,
+      montants_rapides: p.montants_rapides
+        .map((m) => (m === editingMontant.original ? newVal : m))
+        .sort((a, b) => a - b),
+    }))
+    setEditingMontant(null)
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -171,19 +192,43 @@ export default function AdminConfigPage() {
             <label className="label">Montants rapides affichés sur la page recharge</label>
             <div className="flex flex-wrap gap-2 mb-3">
               {form.montants_rapides.map((val) => (
+                editingMontant?.original === val ? (
+                  <div key={val} className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      value={editingMontant.value}
+                      onChange={(e) => setEditingMontant({ ...editingMontant, value: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') confirmEditMontant()
+                        if (e.key === 'Escape') setEditingMontant(null)
+                      }}
+                      autoFocus
+                      className="input py-1 text-xs w-28"
+                    />
+                    <button type="button" onClick={confirmEditMontant} className="text-xs text-secondary font-medium px-2 py-1 hover:underline">OK</button>
+                    <button type="button" onClick={() => setEditingMontant(null)} className="text-xs text-foreground-subtle hover:text-foreground">✕</button>
+                  </div>
+                ) : (
                 <div
                   key={val}
-                  className="flex items-center gap-1.5 bg-background border border-border rounded-lg px-3 py-1.5 text-xs font-medium"
+                  className="flex items-center gap-1.5 bg-background border border-border rounded-lg px-3 py-1.5 text-xs font-medium group"
                 >
-                  <span>{val.toLocaleString('fr-FR')} FCFA</span>
+                  <button
+                    type="button"
+                    onClick={() => startEditMontant(val)}
+                    className="hover:text-primary transition-colors"
+                  >
+                    {val.toLocaleString('fr-FR')} FCFA
+                  </button>
                   <button
                     type="button"
                     onClick={() => removeMontant(val)}
-                    className="text-foreground-subtle hover:text-danger transition-colors"
+                    className="text-foreground-subtle hover:text-danger transition-colors opacity-0 group-hover:opacity-100"
                   >
                     <Trash2 className="w-3 h-3" />
                   </button>
                 </div>
+                )
               ))}
             </div>
             <div className="flex gap-2">
