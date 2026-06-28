@@ -19,11 +19,16 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
 
-    // PayDunya envoie les données dans body.data.bill
-    const token = body?.data?.bill?.token as string | undefined
+    // PayDunya envoie le token dans différents chemins selon la version
+    console.log('[PayDunya IPN] Payload reçu:', JSON.stringify(body))
+    const token = (
+      body?.data?.bill?.token ||
+      body?.data?.invoice?.token ||
+      body?.token
+    ) as string | undefined
 
     if (!token) {
-      console.error('[PayDunya IPN] Token manquant dans le payload')
+      console.error('[PayDunya IPN] Token manquant dans le payload:', JSON.stringify(body))
       return NextResponse.json({ error: 'Token manquant' }, { status: 400 })
     }
 
