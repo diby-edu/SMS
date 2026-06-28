@@ -6,13 +6,19 @@ import { prisma } from '@/lib/prisma'
 import { createLeTextoSender } from '@/lib/letexto'
 
 const updateSchema = z.object({
-  statut: z.enum(['APPROVED', 'REJECTED']),
+  statut: z.enum(['SUBMITTED', 'APPROVED', 'REJECTED', 'DISABLED']),
 })
 
 /**
  * PATCH /api/admin/senders/[id]
- * Valider, refuser ou désactiver un sender.
- * Quand APPROVED : appelle aussi l'API LeTexto pour créer le sender si pas encore fait.
+ * Transitions possibles :
+ *   PENDING    → SUBMITTED  (admin soumet à LeTexto — appelle l'API)
+ *   SUBMITTED  → APPROVED   (opérateurs ont validé)
+ *   SUBMITTED  → REJECTED   (opérateurs ont refusé)
+ *   PENDING    → REJECTED   (admin refuse directement)
+ *   APPROVED   → DISABLED   (admin désactive)
+ *   DISABLED   → APPROVED   (admin réactive)
+ *   REJECTED   → SUBMITTED  (admin resoumet après correction)
  */
 export async function PATCH(
   req: NextRequest,
@@ -31,20 +37,22 @@ export async function PATCH(
 
   const { statut } = result.data
 
-  // Si l'admin valide manuellement un sender PENDING → appeler LeTexto
-  if (statut === 'APPROVED') {
-    const existing = await prisma.sender.findUnique({
-      where: { id: params.id },
-      select: { nom: true, statut: true },
-    })
+  const existing = await prisma.sender.findUnique({
+    where: { id: params.id },
+    select: { nom: true, statut: true },
+  })
 
-    if (existing && existing.statut === 'PENDING') {
-      try {
-        await createLeTextoSender(existing.nom)
-      } catch (e) {
-        console.error('[Admin Sender Approve] Erreur LeTexto:', e)
-        // On approuve quand même en local
-      }
+  if (!existing) {
+    return NextResponse.json({ error: 'Sender introuvable' }, { status: 404 })
+  }
+
+  // Quand l'admin soumet à LeTexto : appeler l'API LeTexto pour créer le sender
+  if (statut === 'SUBMITTED') {
+    try {
+      await createLeTextoSender(existing.nom)
+    } catch (e) {
+      console.error('[Admin Sender Submit] Erreur LeTexto:', e)
+      // On change quand même le statut en SUBMITTED même si l'API échoue
     }
   }
 

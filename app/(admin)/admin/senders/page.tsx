@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import {
-  Tag, CheckCircle2, XCircle, Clock, Loader2, ChevronDown, ChevronUp, Download,
+  Tag, CheckCircle2, XCircle, Clock, Loader2, ChevronDown, ChevronUp, Download, Send, Ban,
 } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { cn, formatDate, COUNTRY_PHONE_PREFIXES } from '@/lib/utils'
@@ -35,9 +35,11 @@ const TYPE_LABELS: Record<string, string> = {
 }
 
 const TABS = [
-  { value: 'PENDING', label: 'En attente', icon: Clock },
-  { value: 'APPROVED', label: 'Actifs', icon: CheckCircle2 },
-  { value: 'REJECTED', label: 'Désactivés', icon: XCircle },
+  { value: 'PENDING',   label: 'En attente',       icon: Clock },
+  { value: 'SUBMITTED', label: 'Soumis à LeTexto',  icon: Send },
+  { value: 'APPROVED',  label: 'Actifs',            icon: CheckCircle2 },
+  { value: 'REJECTED',  label: 'Refusés',           icon: XCircle },
+  { value: 'DISABLED',  label: 'Désactivés',        icon: Ban },
 ]
 
 export default function AdminSendersPage() {
@@ -55,7 +57,7 @@ export default function AdminSendersPage() {
       .finally(() => setLoading(false))
   }, [tab])
 
-  const handleAction = async (id: string, statut: 'APPROVED' | 'REJECTED') => {
+  const handleAction = async (id: string, statut: 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'DISABLED') => {
     setProcessingId(id)
     try {
       const res = await fetch(`/api/admin/senders/${id}`, {
@@ -65,9 +67,13 @@ export default function AdminSendersPage() {
       })
       if (res.ok) {
         setSenders((prev) => prev.filter((s) => s.id !== id))
-        toast.success(
-          statut === 'APPROVED' ? 'Sender validé et activé' : 'Sender désactivé'
-        )
+        const messages: Record<string, string> = {
+          SUBMITTED: 'Sender soumis à LeTexto',
+          APPROVED:  'Sender marqué comme actif',
+          REJECTED:  'Sender refusé',
+          DISABLED:  'Sender désactivé',
+        }
+        toast.success(messages[statut] || 'Statut mis à jour')
       } else {
         toast.error('Erreur lors de la mise à jour')
       }
@@ -82,7 +88,7 @@ export default function AdminSendersPage() {
         <div>
           <h2 className="font-syne font-bold text-xl text-foreground">Gestion des Senders</h2>
           <p className="text-sm text-foreground-muted mt-0.5">
-            Senders de vos clients — validez, désactivez ou réactivez
+            Senders de vos clients — soumettez à LeTexto, validez ou désactivez
           </p>
         </div>
         <a
@@ -97,7 +103,7 @@ export default function AdminSendersPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-surface border border-border rounded-xl p-1 w-fit">
+      <div className="flex flex-wrap gap-1 bg-surface border border-border rounded-xl p-1 w-fit">
         {TABS.map(({ value, label, icon: Icon }) => (
           <button
             key={value}
@@ -152,7 +158,7 @@ export default function AdminSendersPage() {
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
                     {/* Export CSV */}
                     <a
                       href={`/api/admin/senders/${sender.id}/export`}
@@ -173,8 +179,31 @@ export default function AdminSendersPage() {
                         : <ChevronDown className="w-4 h-4" />}
                     </button>
 
-                    {/* Actions */}
+                    {/* Actions selon le statut */}
                     {tab === 'PENDING' && (
+                      <>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          loading={processingId === sender.id}
+                          onClick={() => handleAction(sender.id, 'REJECTED')}
+                          className="text-danger hover:bg-danger/10"
+                          leftIcon={<XCircle className="w-3.5 h-3.5" />}
+                        >
+                          Refuser
+                        </Button>
+                        <Button
+                          size="sm"
+                          loading={processingId === sender.id}
+                          onClick={() => handleAction(sender.id, 'SUBMITTED')}
+                          leftIcon={<Send className="w-3.5 h-3.5" />}
+                        >
+                          Envoyer à LeTexto
+                        </Button>
+                      </>
+                    )}
+
+                    {tab === 'SUBMITTED' && (
                       <>
                         <Button
                           variant="secondary"
@@ -192,7 +221,7 @@ export default function AdminSendersPage() {
                           onClick={() => handleAction(sender.id, 'APPROVED')}
                           leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
                         >
-                          Valider
+                          Marquer actif
                         </Button>
                       </>
                     )}
@@ -202,15 +231,15 @@ export default function AdminSendersPage() {
                         variant="secondary"
                         size="sm"
                         loading={processingId === sender.id}
-                        onClick={() => handleAction(sender.id, 'REJECTED')}
+                        onClick={() => handleAction(sender.id, 'DISABLED')}
                         className="text-danger hover:bg-danger/10"
-                        leftIcon={<XCircle className="w-3.5 h-3.5" />}
+                        leftIcon={<Ban className="w-3.5 h-3.5" />}
                       >
                         Désactiver
                       </Button>
                     )}
 
-                    {tab === 'REJECTED' && (
+                    {tab === 'DISABLED' && (
                       <Button
                         size="sm"
                         loading={processingId === sender.id}
@@ -218,6 +247,17 @@ export default function AdminSendersPage() {
                         leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
                       >
                         Réactiver
+                      </Button>
+                    )}
+
+                    {tab === 'REJECTED' && (
+                      <Button
+                        size="sm"
+                        loading={processingId === sender.id}
+                        onClick={() => handleAction(sender.id, 'SUBMITTED')}
+                        leftIcon={<Send className="w-3.5 h-3.5" />}
+                      >
+                        Resoumettre
                       </Button>
                     )}
                   </div>

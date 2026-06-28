@@ -13,6 +13,8 @@ import {
   Info,
   ChevronDown,
   X,
+  Send,
+  Ban,
 } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { cn, formatDate } from '@/lib/utils'
@@ -24,7 +26,7 @@ import { cn, formatDate } from '@/lib/utils'
 interface Sender {
   id: string
   nom: string
-  statut: 'PENDING' | 'APPROVED' | 'REJECTED'
+  statut: 'PENDING' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'DISABLED'
   type_message: string | null
   activite: string | null
   created_at: string
@@ -41,7 +43,13 @@ const STATUT_CONFIG = {
     label: 'En attente',
     icon: Clock,
     color: 'text-warning bg-warning/10 border-warning/20',
-    desc: 'Votre demande est en cours de traitement.',
+    desc: 'Votre demande est en cours de traitement par notre équipe.',
+  },
+  SUBMITTED: {
+    label: 'En cours de validation',
+    icon: Send,
+    color: 'text-primary bg-primary/10 border-primary/20',
+    desc: 'Votre sender a été soumis aux opérateurs télécom pour validation. Ce processus est indépendant de notre volonté et peut prendre quelques jours.',
   },
   APPROVED: {
     label: 'Actif',
@@ -50,12 +58,26 @@ const STATUT_CONFIG = {
     desc: 'Ce sender est actif et utilisable pour vos envois.',
   },
   REJECTED: {
-    label: 'Désactivé',
+    label: 'Refusé',
     icon: XCircle,
     color: 'text-danger bg-danger/10 border-danger/20',
+    desc: 'Ce sender a été refusé par les opérateurs télécom. Contactez le support pour plus d\'informations.',
+  },
+  DISABLED: {
+    label: 'Désactivé',
+    icon: Ban,
+    color: 'text-foreground-subtle bg-border border-border',
     desc: 'Ce sender a été désactivé. Contactez le support.',
   },
 }
+
+const TABS = [
+  { value: 'PENDING',   label: 'En attente',          icon: Clock },
+  { value: 'SUBMITTED', label: 'En validation',        icon: Send },
+  { value: 'APPROVED',  label: 'Actifs',               icon: CheckCircle2 },
+  { value: 'REJECTED',  label: 'Refusés',              icon: XCircle },
+  { value: 'DISABLED',  label: 'Désactivés',           icon: Ban },
+] as const
 
 // ============================================================
 // PAGE
@@ -64,7 +86,7 @@ const STATUT_CONFIG = {
 export default function SendersPage() {
   const [senders, setSenders] = useState<Sender[]>([])
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING')
+  const [tab, setTab] = useState<Sender['statut']>('PENDING')
   const [showForm, setShowForm] = useState(false)
   const [creating, setCreating] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -127,14 +149,10 @@ export default function SendersPage() {
         return
       }
 
-      const statut = data.sender.statut
-      if (statut === 'APPROVED') {
-        toast.success(`Sender "${form.nom}" créé et activé avec succès !`)
-      } else {
-        toast.success('Demande soumise. En attente de validation.')
-      }
+      toast.success('Demande soumise. Notre équipe va la traiter rapidement.')
       setSenders((prev) => [data.sender, ...prev])
       resetForm()
+      setTab('PENDING')
     } catch {
       toast.error('Erreur réseau. Réessayez.')
     } finally {
@@ -159,6 +177,8 @@ export default function SendersPage() {
       setDeletingId(null)
     }
   }
+
+  const filteredSenders = senders.filter((s) => s.statut === tab)
 
   // ============================================================
   // RENDU
@@ -191,8 +211,11 @@ export default function SendersPage() {
         <p className="text-xs text-foreground-muted leading-relaxed">
           Un <strong className="text-foreground">Sender ID</strong> est le nom affiché à la place
           du numéro sur les SMS reçus par vos contacts (ex :{' '}
-          <span className="font-mono text-primary">MonBusiness</span>). Maximum 11 caractères.{' '}
-          Chaque demande est soumise à <strong className="text-foreground">validation par notre équipe</strong> avant activation.
+          <span className="font-mono text-primary">MonBusiness</span>).{' '}
+          <strong className="text-foreground">Maximum 11 caractères.</strong>{' '}
+          La validation est effectuée par les opérateurs télécom et est{' '}
+          <strong className="text-foreground">indépendante de notre volonté</strong>.{' '}
+          Nous soumettons votre demande rapidement, mais le délai d&apos;approbation peut prendre quelques jours.
         </p>
       </div>
 
@@ -219,15 +242,23 @@ export default function SendersPage() {
               </label>
               <input
                 type="text"
-                placeholder="Ex: MIDIT, MONSHOP, CLINIQUE (max 11 car.)"
+                placeholder="Ex: MIDIT, MONSHOP, CLINIQUE"
                 value={form.nom}
                 onChange={handleChange('nom')}
                 maxLength={11}
                 className={cn('input', errors.nom && 'border-danger')}
               />
-              <p className="mt-1 text-xs text-foreground-subtle">
-                {form.nom.length}/11 caractères · Lettres, chiffres, espaces et tirets uniquement
-              </p>
+              <div className="mt-1 flex items-center justify-between">
+                <p className="text-xs text-foreground-subtle">
+                  Lettres, chiffres, espaces et tirets uniquement
+                </p>
+                <p className={cn(
+                  'text-xs font-semibold tabular-nums',
+                  form.nom.length >= 11 ? 'text-danger' : form.nom.length >= 8 ? 'text-warning' : 'text-foreground-subtle'
+                )}>
+                  {form.nom.length}/11
+                </p>
+              </div>
               {errors.nom?.map((e) => <p key={e} className="mt-1 text-xs text-danger">⚠ {e}</p>)}
             </div>
 
@@ -380,33 +411,29 @@ export default function SendersPage() {
       )}
 
       {/* ---- Onglets ---- */}
-      <div className="flex gap-1 bg-surface border border-border rounded-xl p-1 w-fit">
-        {([
-          { value: 'PENDING', label: 'En attente', icon: Clock },
-          { value: 'APPROVED', label: 'Actifs', icon: CheckCircle2 },
-          { value: 'REJECTED', label: 'Désactivés', icon: XCircle },
-        ] as const).map(({ value, label, icon: Icon }) => (
-          <button
-            key={value}
-            onClick={() => setTab(value)}
-            className={cn(
-              'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all',
-              tab === value ? 'bg-primary/10 text-primary' : 'text-foreground-muted hover:text-foreground'
-            )}
-          >
-            <Icon className="w-3.5 h-3.5" />
-            {label}
-            {(() => {
-              const n = senders.filter(s => s.statut === value).length
-              return n > 0 ? (
+      <div className="flex flex-wrap gap-1 bg-surface border border-border rounded-xl p-1 w-fit">
+        {TABS.map(({ value, label, icon: Icon }) => {
+          const count = senders.filter((s) => s.statut === value).length
+          return (
+            <button
+              key={value}
+              onClick={() => setTab(value)}
+              className={cn(
+                'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all',
+                tab === value ? 'bg-primary/10 text-primary' : 'text-foreground-muted hover:text-foreground'
+              )}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {label}
+              {count > 0 && (
                 <span className={cn(
                   'text-xs rounded-full px-1.5 py-0.5 font-bold',
                   tab === value ? 'bg-primary text-background' : 'bg-border text-foreground-muted'
-                )}>{n}</span>
-              ) : null
-            })()}
-          </button>
-        ))}
+                )}>{count}</span>
+              )}
+            </button>
+          )
+        })}
       </div>
 
       {/* ---- Liste des senders ---- */}
@@ -415,7 +442,7 @@ export default function SendersPage() {
           <div className="flex items-center justify-center py-16">
             <Loader2 className="w-6 h-6 text-primary animate-spin" />
           </div>
-        ) : senders.filter(s => s.statut === tab).length === 0 ? (
+        ) : filteredSenders.length === 0 ? (
           <div className="py-16 text-center">
             <Tag className="w-10 h-10 text-foreground-subtle mx-auto mb-3" />
             {tab === 'PENDING' && (
@@ -427,23 +454,25 @@ export default function SendersPage() {
                 </Button>
               </>
             )}
+            {tab === 'SUBMITTED' && <p className="text-sm text-foreground-muted">Aucun sender en cours de validation</p>}
             {tab === 'APPROVED' && <p className="text-sm text-foreground-muted">Aucun sender actif</p>}
-            {tab === 'REJECTED' && <p className="text-sm text-foreground-muted">Aucun sender désactivé</p>}
+            {tab === 'REJECTED' && <p className="text-sm text-foreground-muted">Aucun sender refusé</p>}
+            {tab === 'DISABLED' && <p className="text-sm text-foreground-muted">Aucun sender désactivé</p>}
           </div>
         ) : (
           <div className="divide-y divide-border">
-            {senders.filter(s => s.statut === tab).map((sender) => {
+            {filteredSenders.map((sender) => {
               const config = STATUT_CONFIG[sender.statut]
               const Icon = config.icon
 
               return (
                 <div
                   key={sender.id}
-                  className="flex items-center gap-4 px-5 py-4 hover:bg-background/30 transition-colors"
+                  className="flex items-start gap-4 px-5 py-4 hover:bg-background/30 transition-colors"
                 >
                   <div
                     className={cn(
-                      'w-10 h-10 rounded-xl flex items-center justify-center border shrink-0',
+                      'w-10 h-10 rounded-xl flex items-center justify-center border shrink-0 mt-0.5',
                       config.color
                     )}
                   >
@@ -467,24 +496,27 @@ export default function SendersPage() {
                       {sender.activite && ` · ${sender.activite}`}
                     </p>
                     {sender.statut !== 'APPROVED' && (
-                      <p className="text-xs text-foreground-subtle mt-1 italic">
+                      <p className="text-xs text-foreground-subtle mt-1.5 leading-relaxed">
                         {config.desc}
                       </p>
                     )}
                   </div>
 
-                  <button
-                    onClick={() => handleDelete(sender.id, sender.nom)}
-                    disabled={deletingId === sender.id}
-                    className="text-foreground-subtle hover:text-danger transition-colors p-2 rounded-lg hover:bg-danger/8 disabled:opacity-50"
-                    aria-label={`Supprimer ${sender.nom}`}
-                  >
-                    {deletingId === sender.id ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="w-4 h-4" />
-                    )}
-                  </button>
+                  {/* Supprimer seulement si PENDING ou REJECTED */}
+                  {(sender.statut === 'PENDING' || sender.statut === 'REJECTED') && (
+                    <button
+                      onClick={() => handleDelete(sender.id, sender.nom)}
+                      disabled={deletingId === sender.id}
+                      className="text-foreground-subtle hover:text-danger transition-colors p-2 rounded-lg hover:bg-danger/8 disabled:opacity-50 shrink-0"
+                      aria-label={`Supprimer ${sender.nom}`}
+                    >
+                      {deletingId === sender.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
+                    </button>
+                  )}
                 </div>
               )
             })}

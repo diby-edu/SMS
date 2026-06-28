@@ -20,9 +20,11 @@ enum Role {
 }
 
 enum SenderStatus {
-  PENDING   // En attente de validation par l'admin
-  APPROVED  // Validé, utilisable
-  REJECTED  // Refusé
+  PENDING    // En attente de validation admin (étape 1)
+  SUBMITTED  // Soumis à LeTexto / opérateurs télécom (étape 2)
+  APPROVED   // Validé par les opérateurs, actif (étape 3)
+  REJECTED   // Refusé (par admin ou opérateurs)
+  DISABLED   // Désactivé par l'admin (était APPROVED)
 }
 
 enum MessageStatus {
