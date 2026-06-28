@@ -6,7 +6,6 @@ import { signOut } from 'next-auth/react'
 import {
   LayoutDashboard,
   Send,
-  Megaphone,
   History,
   Users,
   Tag,
@@ -26,7 +25,6 @@ import { cn } from '@/lib/utils'
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
   { href: '/sms', label: 'Envoyer un SMS', icon: Send },
-  { href: '/campagnes', label: 'Campagnes', icon: Megaphone },
   { href: '/historique', label: 'Historique', icon: History },
   { href: '/contacts', label: 'Contacts', icon: Users },
   { href: '/senders', label: 'Senders', icon: Tag },

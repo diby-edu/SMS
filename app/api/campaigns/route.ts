@@ -21,7 +21,8 @@ const campaignSchema = z.object({
   content: z.string().min(1, 'Message vide').max(918).trim(),
   contacts: z
     .array(z.object({ phone: z.string().min(8) }).catchall(z.string()))
-    .min(1, 'Ajoutez au moins un contact'),
+    .optional(),
+  group_id: z.string().optional(),
 })
 
 // ============================================================
@@ -45,8 +46,30 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const { label, sender, content, contacts } = result.data
+    const { label, sender, content, group_id } = result.data
     const userId = session.user.id
+
+    // Résolution des contacts (tableau direct ou depuis un groupe)
+    let contacts: Array<{ phone: string } & Record<string, string>>
+    if (group_id) {
+      const groupContacts = await prisma.contact.findMany({
+        where: { liste_id: group_id, user_id: userId },
+        select: { phone: true, nom: true, prenom: true },
+      })
+      if (groupContacts.length === 0) {
+        return NextResponse.json({ error: 'Le groupe sélectionné est vide' }, { status: 400 })
+      }
+      contacts = groupContacts.map((c) => ({
+        phone: c.phone,
+        ...(c.nom ? { nom: c.nom } : {}),
+        ...(c.prenom ? { prenom: c.prenom } : {}),
+      }))
+    } else if (result.data.contacts && result.data.contacts.length > 0) {
+      contacts = result.data.contacts as Array<{ phone: string } & Record<string, string>>
+    } else {
+      return NextResponse.json({ error: 'Ajoutez au moins un contact' }, { status: 400 })
+    }
+
     const nbContacts = contacts.length
 
     // Vérification du solde
@@ -95,7 +118,7 @@ export async function POST(req: NextRequest) {
       letextoResponse = await createSMSCampaign({
         label,
         sender,
-        contacts: contacts as Array<{ phone: string } & Record<string, string>>,
+        contacts,
         content,
       })
 

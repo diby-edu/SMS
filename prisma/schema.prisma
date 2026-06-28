@@ -82,11 +82,19 @@ model User {
 }
 
 model Sender {
-  id         String       @id @default(cuid())
-  user_id    String
-  nom        String       @db.VarChar(11) // Max 11 caractères imposé par les opérateurs
-  statut     SenderStatus @default(PENDING)
-  created_at DateTime     @default(now())
+  id              String       @id @default(cuid())
+  user_id         String
+  nom             String       @db.VarChar(11) // Max 11 caractères imposé par les opérateurs
+  statut          SenderStatus @default(PENDING)
+  type_message    String?      // PROMOTIONAL | OTP | TRANSACTIONAL
+  description     String?      // Description du contenu des messages
+  email_contact   String?      // Email de contact du client
+  site_web        String?      // Site web ou application liée au sender
+  adresse         String?      // Adresse de l'entreprise
+  siege_social    String?      // Siège social
+  exemple_message String?      // Exemple(s) de message
+  activite        String?      // Secteur d'activité
+  created_at      DateTime     @default(now())
 
   user      User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
   campaigns Campaign[]

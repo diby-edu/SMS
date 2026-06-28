@@ -11,10 +11,11 @@ import {
   XCircle,
   Loader2,
   Info,
+  ChevronDown,
+  X,
 } from 'lucide-react'
 import Button from '@/components/ui/Button'
-import Input from '@/components/ui/Input'
-import { cn, formatDate, getStatusColor } from '@/lib/utils'
+import { cn, formatDate } from '@/lib/utils'
 
 // ============================================================
 // TYPES
@@ -24,27 +25,35 @@ interface Sender {
   id: string
   nom: string
   statut: 'PENDING' | 'APPROVED' | 'REJECTED'
+  type_message: string | null
+  activite: string | null
   created_at: string
 }
+
+const TYPE_OPTIONS = [
+  { value: 'PROMOTIONAL', label: 'Promotionnel', desc: 'Offres, réductions, événements marketing' },
+  { value: 'TRANSACTIONAL', label: 'Transactionnel', desc: 'Confirmations, notifications de service' },
+  { value: 'OTP', label: 'OTP', desc: 'Codes de vérification et authentification' },
+]
 
 const STATUT_CONFIG = {
   PENDING: {
     label: 'En attente',
     icon: Clock,
     color: 'text-warning bg-warning/10 border-warning/20',
-    desc: 'Votre demande est en cours de validation par notre équipe.',
+    desc: 'Votre demande est en cours de traitement.',
   },
   APPROVED: {
-    label: 'Validé',
+    label: 'Actif',
     icon: CheckCircle2,
     color: 'text-secondary bg-secondary/10 border-secondary/20',
-    desc: 'Ce sender est actif et peut être utilisé pour vos envois.',
+    desc: 'Ce sender est actif et utilisable pour vos envois.',
   },
   REJECTED: {
-    label: 'Refusé',
+    label: 'Désactivé',
     icon: XCircle,
     color: 'text-danger bg-danger/10 border-danger/20',
-    desc: 'Ce sender a été refusé. Contactez le support pour plus d\'informations.',
+    desc: 'Ce sender a été désactivé. Contactez le support.',
   },
 }
 
@@ -55,11 +64,22 @@ const STATUT_CONFIG = {
 export default function SendersPage() {
   const [senders, setSenders] = useState<Sender[]>([])
   const [loading, setLoading] = useState(true)
-  const [newNom, setNewNom] = useState('')
-  const [nomError, setNomError] = useState('')
-  const [creating, setCreating] = useState(false)
   const [showForm, setShowForm] = useState(false)
+  const [creating, setCreating] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const [form, setForm] = useState({
+    nom: '',
+    type_message: '',
+    description: '',
+    email_contact: '',
+    site_web: '',
+    adresse: '',
+    siege_social: '',
+    exemple_message: '',
+    activite: '',
+  })
+  const [errors, setErrors] = useState<Record<string, string[]>>({})
 
   const fetchSenders = async () => {
     try {
@@ -73,41 +93,47 @@ export default function SendersPage() {
     }
   }
 
-  useEffect(() => {
-    fetchSenders()
-  }, [])
+  useEffect(() => { fetchSenders() }, [])
+
+  const handleChange = (field: keyof typeof form) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+      setForm((prev) => ({ ...prev, [field]: e.target.value }))
+      if (errors[field]) setErrors((prev) => ({ ...prev, [field]: [] }))
+    }
+
+  const resetForm = () => {
+    setForm({ nom: '', type_message: '', description: '', email_contact: '', site_web: '', adresse: '', siege_social: '', exemple_message: '', activite: '' })
+    setErrors({})
+    setShowForm(false)
+  }
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
-    setNomError('')
-
-    const nom = newNom.trim()
-    if (!nom) { setNomError('Nom requis'); return }
-    if (nom.length < 2) { setNomError('Minimum 2 caractères'); return }
-    if (nom.length > 11) { setNomError('Maximum 11 caractères'); return }
-    if (!/^[a-zA-Z0-9\s\-]+$/.test(nom)) {
-      setNomError('Lettres, chiffres, espaces et tirets uniquement')
-      return
-    }
-
     setCreating(true)
+    setErrors({})
+
     try {
       const res = await fetch('/api/senders/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nom }),
+        body: JSON.stringify(form),
       })
       const data = await res.json()
 
       if (!res.ok) {
-        setNomError(data.errors?.nom?.[0] || data.error || 'Erreur lors de la création')
+        setErrors(data.errors || {})
+        if (data.error) toast.error(data.error)
         return
       }
 
-      toast.success('Demande de sender soumise. En attente de validation.')
-      setNewNom('')
-      setShowForm(false)
+      const statut = data.sender.statut
+      if (statut === 'APPROVED') {
+        toast.success(`Sender "${form.nom}" créé et activé avec succès !`)
+      } else {
+        toast.success('Demande soumise. En attente de validation.')
+      }
       setSenders((prev) => [data.sender, ...prev])
+      resetForm()
     } catch {
       toast.error('Erreur réseau. Réessayez.')
     } finally {
@@ -117,7 +143,6 @@ export default function SendersPage() {
 
   const handleDelete = async (id: string, nom: string) => {
     if (!confirm(`Supprimer le sender "${nom}" ?`)) return
-
     setDeletingId(id)
     try {
       const res = await fetch(`/api/senders/${id}`, { method: 'DELETE' })
@@ -143,66 +168,210 @@ export default function SendersPage() {
       {/* ---- En-tête ---- */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="font-syne font-bold text-xl text-foreground">
-            Gestion des Senders
-          </h2>
+          <h2 className="font-syne font-bold text-xl text-foreground">Mes Senders</h2>
           <p className="text-sm text-foreground-muted mt-0.5">
             Nom d&apos;expéditeur affiché sur les SMS reçus par vos contacts
           </p>
         </div>
-        <Button
-          leftIcon={<Plus className="w-4 h-4" />}
-          size="sm"
-          onClick={() => setShowForm((v) => !v)}
-        >
-          Nouveau sender
-        </Button>
+        {!showForm && (
+          <Button
+            leftIcon={<Plus className="w-4 h-4" />}
+            size="sm"
+            onClick={() => setShowForm(true)}
+          >
+            Nouveau sender
+          </Button>
+        )}
       </div>
 
       {/* ---- Info ---- */}
       <div className="flex items-start gap-3 bg-primary/5 border border-primary/15 rounded-xl px-4 py-3.5">
         <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
         <p className="text-xs text-foreground-muted leading-relaxed">
-          Un <strong className="text-foreground">Sender ID</strong> est le nom qui apparaît
-          à la place du numéro sur les SMS de vos destinataires. Ex :{' '}
-          <span className="font-mono text-primary">MonBusiness</span>.
-          Chaque sender doit être validé par notre équipe avant utilisation (24-48h).
+          Un <strong className="text-foreground">Sender ID</strong> est le nom affiché à la place
+          du numéro sur les SMS reçus par vos contacts (ex :{' '}
+          <span className="font-mono text-primary">MonBusiness</span>). Maximum 11 caractères.
+          Le sender est enregistré automatiquement après soumission.
         </p>
       </div>
 
-      {/* ---- Formulaire création ---- */}
+      {/* ---- Formulaire ---- */}
       {showForm && (
-        <div className="bg-surface border border-border rounded-2xl p-5 animate-slide-up">
-          <h3 className="font-syne font-semibold text-sm text-foreground mb-4">
-            Nouvelle demande de Sender
-          </h3>
+        <div className="bg-surface border border-border rounded-2xl p-6 animate-slide-up">
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="font-syne font-semibold text-base text-foreground">
+              Nouveau Sender ID
+            </h3>
+            <button
+              onClick={resetForm}
+              className="text-foreground-subtle hover:text-foreground transition-colors p-1"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
           <form onSubmit={handleCreate} className="space-y-4">
-            <Input
-              label="Nom du sender (max 11 caractères)"
-              type="text"
-              placeholder="Ex: MonShop"
-              value={newNom}
-              onChange={(e) => {
-                setNewNom(e.target.value)
-                if (nomError) setNomError('')
-              }}
-              maxLength={11}
-              leftIcon={<Tag className="w-4 h-4" />}
-              error={nomError}
-              hint={`${newNom.length}/11 caractères · Lettres, chiffres, espaces, tirets`}
-              autoFocus
-            />
-            <div className="flex gap-3">
+            {/* Sender ID */}
+            <div>
+              <label className="label">
+                Sender ID <span className="text-danger">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Ex: MIDIT, MONSHOP, CLINIQUE (max 11 car.)"
+                value={form.nom}
+                onChange={handleChange('nom')}
+                maxLength={11}
+                className={cn('input', errors.nom && 'border-danger')}
+              />
+              <p className="mt-1 text-xs text-foreground-subtle">
+                {form.nom.length}/11 caractères · Lettres, chiffres, espaces et tirets uniquement
+              </p>
+              {errors.nom?.map((e) => <p key={e} className="mt-1 text-xs text-danger">⚠ {e}</p>)}
+            </div>
+
+            {/* Type de message */}
+            <div>
+              <label className="label">
+                Type de message <span className="text-danger">*</span>
+              </label>
+              <div className="relative">
+                <select
+                  value={form.type_message}
+                  onChange={handleChange('type_message')}
+                  className={cn('input appearance-none pr-9', errors.type_message && 'border-danger')}
+                >
+                  <option value="">-- Sélectionner le type --</option>
+                  {TYPE_OPTIONS.map((t) => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-subtle pointer-events-none" />
+              </div>
+              {form.type_message && (
+                <p className="mt-1 text-xs text-foreground-subtle">
+                  {TYPE_OPTIONS.find((t) => t.value === form.type_message)?.desc}
+                </p>
+              )}
+              {errors.type_message?.map((e) => <p key={e} className="mt-1 text-xs text-danger">⚠ {e}</p>)}
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="label">
+                Description du contenu <span className="text-danger">*</span>
+              </label>
+              <textarea
+                placeholder="Ex: Envoi de messages promotionnels, offres spéciales, réductions, nouveaux menus, événements et campagnes marketing du restaurant."
+                value={form.description}
+                onChange={handleChange('description')}
+                rows={3}
+                className={cn('input resize-none', errors.description && 'border-danger')}
+              />
+              {errors.description?.map((e) => <p key={e} className="mt-1 text-xs text-danger">⚠ {e}</p>)}
+            </div>
+
+            {/* Email de contact */}
+            <div>
+              <label className="label">
+                Email de contact <span className="text-danger">*</span>
+              </label>
+              <input
+                type="email"
+                placeholder="Ex: contact@monentreprise.com"
+                value={form.email_contact}
+                onChange={handleChange('email_contact')}
+                className={cn('input', errors.email_contact && 'border-danger')}
+              />
+              {errors.email_contact?.map((e) => <p key={e} className="mt-1 text-xs text-danger">⚠ {e}</p>)}
+            </div>
+
+            {/* Site web */}
+            <div>
+              <label className="label">
+                Site web ou application{' '}
+                <span className="text-foreground-subtle font-normal">(optionnel)</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Ex: www.monrestaurant.ci ou Facebook: Midit Lounge Garden"
+                value={form.site_web}
+                onChange={handleChange('site_web')}
+                className="input"
+              />
+            </div>
+
+            {/* Adresse */}
+            <div>
+              <label className="label">
+                Adresse de l&apos;entreprise <span className="text-danger">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Ex: Angré, près du CHU d'Angré, Abidjan"
+                value={form.adresse}
+                onChange={handleChange('adresse')}
+                className={cn('input', errors.adresse && 'border-danger')}
+              />
+              {errors.adresse?.map((e) => <p key={e} className="mt-1 text-xs text-danger">⚠ {e}</p>)}
+            </div>
+
+            {/* Siège social */}
+            <div>
+              <label className="label">
+                Siège social <span className="text-danger">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Ex: Abidjan, Côte d'Ivoire"
+                value={form.siege_social}
+                onChange={handleChange('siege_social')}
+                className={cn('input', errors.siege_social && 'border-danger')}
+              />
+              {errors.siege_social?.map((e) => <p key={e} className="mt-1 text-xs text-danger">⚠ {e}</p>)}
+            </div>
+
+            {/* Exemple de message */}
+            <div>
+              <label className="label">
+                Exemple(s) de message <span className="text-danger">*</span>
+              </label>
+              <textarea
+                placeholder={`Ex:\n1. MIDIT : Profitez de nos offres spéciales ce week-end. Réservez votre table dès maintenant.\n2. MIDIT : Découvrez notre nouveau menu de saison ! Venez nous rendre visite à Angré.\n3. MIDIT : Ce soir, soirée spéciale au restaurant MIDIT. Places limitées, réservez vite !`}
+                value={form.exemple_message}
+                onChange={handleChange('exemple_message')}
+                rows={5}
+                className={cn('input resize-none text-sm', errors.exemple_message && 'border-danger')}
+              />
+              {errors.exemple_message?.map((e) => <p key={e} className="mt-1 text-xs text-danger">⚠ {e}</p>)}
+            </div>
+
+            {/* Secteur d'activité */}
+            <div>
+              <label className="label">
+                Secteur d&apos;activité <span className="text-danger">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Ex: Restaurant, Centre médical, Pharmacie, Banque, E-commerce..."
+                value={form.activite}
+                onChange={handleChange('activite')}
+                className={cn('input', errors.activite && 'border-danger')}
+              />
+              {errors.activite?.map((e) => <p key={e} className="mt-1 text-xs text-danger">⚠ {e}</p>)}
+            </div>
+
+            <div className="flex gap-3 pt-2">
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() => { setShowForm(false); setNewNom(''); setNomError('') }}
+                onClick={resetForm}
                 className="flex-1"
               >
                 Annuler
               </Button>
               <Button type="submit" loading={creating} className="flex-1">
-                Soumettre la demande
+                Créer le sender
               </Button>
             </div>
           </form>
@@ -242,7 +411,6 @@ export default function SendersPage() {
                   key={sender.id}
                   className="flex items-center gap-4 px-5 py-4 hover:bg-background/30 transition-colors"
                 >
-                  {/* Icône */}
                   <div
                     className={cn(
                       'w-10 h-10 rounded-xl flex items-center justify-center border shrink-0',
@@ -252,23 +420,21 @@ export default function SendersPage() {
                     <Icon className="w-5 h-5" />
                   </div>
 
-                  {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-foreground font-mono">
-                        {sender.nom}
-                      </p>
-                      <span
-                        className={cn(
-                          'badge border',
-                          config.color
-                        )}
-                      >
-                        {config.label}
-                      </span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-bold text-foreground font-mono">{sender.nom}</p>
+                      <span className={cn('badge border', config.color)}>{config.label}</span>
+                      {sender.type_message && (
+                        <span className="badge border border-border text-foreground-muted">
+                          {sender.type_message === 'PROMOTIONAL' ? 'Promotionnel'
+                            : sender.type_message === 'OTP' ? 'OTP'
+                            : 'Transactionnel'}
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-foreground-subtle mt-0.5">
                       Créé le {formatDate(sender.created_at)}
+                      {sender.activite && ` · ${sender.activite}`}
                     </p>
                     {sender.statut !== 'APPROVED' && (
                       <p className="text-xs text-foreground-subtle mt-1 italic">
@@ -277,7 +443,6 @@ export default function SendersPage() {
                     )}
                   </div>
 
-                  {/* Actions */}
                   <button
                     onClick={() => handleDelete(sender.id, sender.nom)}
                     disabled={deletingId === sender.id}
