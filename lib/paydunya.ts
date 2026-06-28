@@ -98,6 +98,10 @@ export async function createPayDunyaInvoice(
       postal_address: process.env.PAYDUNYA_STORE_POSTAL_ADDRESS || 'Abidjan, Côte d\'Ivoire',
       website_url: process.env.PAYDUNYA_STORE_WEBSITE_URL || '',
     },
+    customer: {
+      name: params.userName,
+      email: params.userEmail,
+    },
     actions: {
       cancel_url: process.env.PAYDUNYA_CANCEL_URL || '',
       return_url: process.env.PAYDUNYA_RETURN_URL || '',

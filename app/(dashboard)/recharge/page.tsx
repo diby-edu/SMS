@@ -105,8 +105,8 @@ export default function RechargePage() {
         return
       }
 
-      // Rediriger vers la page de paiement PayDunya
-      window.location.href = data.invoice_url
+      // Ouvrir la page de paiement PayDunya dans un nouvel onglet
+      window.open(data.invoice_url, '_blank')
     } catch {
       toast.error('Erreur réseau. Veuillez réessayer.')
     } finally {

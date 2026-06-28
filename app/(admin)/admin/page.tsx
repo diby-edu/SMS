@@ -43,6 +43,7 @@ export default async function AdminPage() {
     config,
     smsByCountry,
     letextoBalance,
+    smsStockClientsAgg,
   ] = await Promise.all([
     prisma.user.count({ where: { role: 'CLIENT' } }),
     prisma.user.count({ where: { role: 'CLIENT', created_at: { gte: startOfMonth } } }),
@@ -54,10 +55,14 @@ export default async function AdminPage() {
     prisma.appConfig.findFirst(),
     prisma.user.groupBy({ by: ['pays'], where: { role: 'CLIENT' }, _count: { id: true }, orderBy: { _count: { id: 'desc' } }, take: 6 }),
     getLeTextoBalance().catch(() => null),
+    // SMS achetés par clients non encore envoyés (exposition réelle sur LeTexto)
+    prisma.user.aggregate({ where: { role: 'CLIENT' }, _sum: { solde_sms: true } }),
   ])
 
   const revenusTotal = revenusAgg._sum.montant_fcfa ?? 0
   const revenusCeMois = revenusMoisAgg._sum.montant_fcfa ?? 0
+  const smsStockClients = smsStockClientsAgg._sum.solde_sms ?? 0
+  const margeLetexto = letextoBalance !== null ? letextoBalance - smsStockClients : null
   const alerteBalance = letextoBalance !== null && config && letextoBalance < config.letexto_balance_alert
 
   return (
@@ -122,8 +127,12 @@ export default async function AdminPage() {
         />
         <StatsCard
           title="Solde LeTexto"
-          value={letextoBalance !== null ? `${letextoBalance?.toLocaleString('fr-FR')} SMS` : 'N/A'}
-          subtitle={alerteBalance ? 'Solde bas — rechargez' : 'Solde disponible'}
+          value={letextoBalance !== null ? `${letextoBalance.toLocaleString('fr-FR')} SMS` : 'N/A'}
+          subtitle={
+            margeLetexto !== null
+              ? `Stock clients : ${smsStockClients.toLocaleString('fr-FR')} SMS — Marge : ${margeLetexto.toLocaleString('fr-FR')} SMS`
+              : 'Solde disponible'
+          }
           icon={MessageSquare}
           iconColor={alerteBalance ? 'danger' : 'secondary'}
         />

@@ -78,11 +78,22 @@ export default function AdminSendersPage() {
 
   return (
     <div className="space-y-5 animate-fade-in">
-      <div>
-        <h2 className="font-syne font-bold text-xl text-foreground">Gestion des Senders</h2>
-        <p className="text-sm text-foreground-muted mt-0.5">
-          Senders de vos clients — validez, désactivez ou réactivez
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="font-syne font-bold text-xl text-foreground">Gestion des Senders</h2>
+          <p className="text-sm text-foreground-muted mt-0.5">
+            Senders de vos clients — validez, désactivez ou réactivez
+          </p>
+        </div>
+        <a
+          href="/api/admin/senders/export-all?statut=PENDING"
+          download
+          title="Exporter tous les senders en attente (format LeTexto)"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-colors shrink-0"
+        >
+          <Download className="w-4 h-4" />
+          Exporter tout (XLSX)
+        </a>
       </div>
 
       {/* Tabs */}

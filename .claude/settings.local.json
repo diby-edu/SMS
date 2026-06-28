@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ssh root@72.62.148.170 \"cd /var/www/textopro && npx prisma generate && npm run build && pm2 restart textopro\")",
+      "Bash(git add:*)",
+      "Bash(ssh root@72.62.148.170 \"cd /var/www/textopro && git pull && npx prisma generate && npm run build && pm2 restart textopro\")",
+      "Bash(gh run:*)",
+      "Bash(npm install:*)"
+    ]
+  }
+}

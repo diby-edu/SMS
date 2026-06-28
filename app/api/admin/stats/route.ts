@@ -24,6 +24,8 @@ export async function GET(req: NextRequest) {
     config,
     letextoBalance,
     smsByCountry,
+    smsStockClients,
+    smsAchetes,
   ] = await Promise.all([
     prisma.user.count({ where: { role: 'CLIENT' } }),
     prisma.user.count({
@@ -50,12 +52,27 @@ export async function GET(req: NextRequest) {
       _count: { id: true },
       orderBy: { _count: { id: 'desc' } },
     }),
+    // Total SMS en stock chez les clients (exposition LeTexto)
+    prisma.user.aggregate({
+      where: { role: 'CLIENT' },
+      _sum: { solde_sms: true },
+    }),
+    // Total SMS achetés par les clients (toutes transactions SUCCESS)
+    prisma.transaction.aggregate({
+      where: { statut: 'SUCCESS' },
+      _sum: { sms_credites: true },
+    }),
   ])
 
   const alerteBalance =
     letextoBalance !== null &&
     config?.letexto_balance_alert !== undefined &&
     letextoBalance < config.letexto_balance_alert
+
+  // SMS stock clients = SMS achetés mais pas encore envoyés (exposition LeTexto)
+  const smsStockClientsTotal = smsStockClients._sum.solde_sms ?? 0
+  // Marge réelle = solde LeTexto - stock SMS clients
+  const margeLetexto = letextoBalance !== null ? letextoBalance - smsStockClientsTotal : null
 
   return NextResponse.json({
     totalClients,
@@ -72,5 +89,8 @@ export async function GET(req: NextRequest) {
       pays: g.pays,
       count: g._count.id,
     })),
+    smsStockClients: smsStockClientsTotal,
+    smsAchetesTotal: smsAchetes._sum.sms_credites ?? 0,
+    margeLetexto,
   })
 }
