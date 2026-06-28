@@ -270,8 +270,8 @@ export default async function DashboardPage() {
             color: 'bg-primary/10 text-primary hover:bg-primary/15',
           },
           {
-            href: '/campagnes',
-            label: 'Nouvelle campagne',
+            href: '/historique',
+            label: 'Historique',
             icon: Megaphone,
             color: 'bg-secondary/10 text-secondary hover:bg-secondary/15',
           },

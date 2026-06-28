@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
+  Tag,
 } from 'lucide-react'
 
 // ============================================================
@@ -26,6 +27,7 @@ interface ApiKey {
   name: string
   key: string
   is_active: boolean
+  default_otp_sender: string | null
   last_used: string | null
   created_at: string
   _count: { otpCodes: number }
@@ -37,6 +39,11 @@ interface Stats {
   failed: number
   thisMonth: number
   tauxVerification: number
+}
+
+interface OtpSender {
+  id: string
+  nom: string
 }
 
 // ============================================================
@@ -69,14 +76,21 @@ function StatCard({
 
 function ApiKeyRow({
   apiKey,
+  otpSenders,
   onDelete,
+  onUpdate,
 }: {
   apiKey: ApiKey
+  otpSenders: OtpSender[]
   onDelete: (id: string) => void
+  onUpdate: (id: string, default_otp_sender: string | null) => void
 }) {
   const [visible, setVisible] = useState(false)
   const [copied, setCopied] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [editingSender, setEditingSender] = useState(false)
+  const [selectedSender, setSelectedSender] = useState(apiKey.default_otp_sender ?? '')
+  const [savingSender, setSavingSender] = useState(false)
 
   const maskedKey = apiKey.key.slice(0, 12) + '••••••••••••••••••••••••••••••••'
 
@@ -94,6 +108,23 @@ function ApiKeyRow({
       if (res.ok) onDelete(apiKey.id)
     } finally {
       setDeleting(false)
+    }
+  }
+
+  const saveSender = async () => {
+    setSavingSender(true)
+    try {
+      const res = await fetch(`/api/otp/keys/${apiKey.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ default_otp_sender: selectedSender || null }),
+      })
+      if (res.ok) {
+        onUpdate(apiKey.id, selectedSender || null)
+        setEditingSender(false)
+      }
+    } finally {
+      setSavingSender(false)
     }
   }
 
@@ -138,6 +169,70 @@ function ApiKeyRow({
           {copied ? <Check className="w-3.5 h-3.5 text-secondary" /> : <Copy className="w-3.5 h-3.5" />}
         </button>
       </div>
+
+      {/* Sender OTP par défaut */}
+      {otpSenders.length > 0 && (
+        <div className="mt-2">
+          {editingSender ? (
+            <div className="flex items-center gap-2">
+              <select
+                value={selectedSender}
+                onChange={(e) => setSelectedSender(e.target.value)}
+                className="flex-1 bg-background border border-border rounded-lg px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary"
+              >
+                <option value="">TextoPro (défaut système)</option>
+                {otpSenders.map((s) => (
+                  <option key={s.id} value={s.nom}>{s.nom}</option>
+                ))}
+              </select>
+              <button
+                onClick={saveSender}
+                disabled={savingSender}
+                className="text-xs text-secondary font-semibold hover:underline disabled:opacity-50"
+              >
+                {savingSender ? '...' : 'OK'}
+              </button>
+              <button
+                onClick={() => { setEditingSender(false); setSelectedSender(apiKey.default_otp_sender ?? '') }}
+                className="text-xs text-foreground-subtle hover:text-foreground"
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 text-xs text-foreground-subtle">
+              <Tag className="w-3 h-3" />
+              <span>Sender OTP par défaut :</span>
+              <span className="font-mono text-foreground font-medium">
+                {apiKey.default_otp_sender ?? 'TextoPro'}
+              </span>
+              <button
+                onClick={() => setEditingSender(true)}
+                className="ml-1 text-primary hover:underline"
+              >
+                modifier
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function OtpSenderBadge({ nom }: { nom: string }) {
+  const [copied, setCopied] = useState(false)
+  const copy = async () => {
+    await navigator.clipboard.writeText(nom)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+  return (
+    <div className="flex items-center justify-between bg-background border border-border rounded-lg px-3 py-2">
+      <code className="text-sm font-mono text-foreground">{nom}</code>
+      <button onClick={copy} className="text-foreground-subtle hover:text-primary transition-colors" title="Copier">
+        {copied ? <Check className="w-3.5 h-3.5 text-secondary" /> : <Copy className="w-3.5 h-3.5" />}
+      </button>
     </div>
   )
 }
@@ -149,6 +244,7 @@ function ApiKeyRow({
 export default function OtpPage() {
   const [keys, setKeys] = useState<ApiKey[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
+  const [otpSenders, setOtpSenders] = useState<OtpSender[]>([])
   const [loading, setLoading] = useState(true)
   const [newKeyName, setNewKeyName] = useState('')
   const [creating, setCreating] = useState(false)
@@ -158,12 +254,22 @@ export default function OtpPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [keysRes, statsRes] = await Promise.all([
+    const [keysRes, statsRes, sendersRes] = await Promise.all([
       fetch('/api/otp/keys'),
       fetch('/api/otp/stats'),
+      fetch('/api/senders'),
     ])
     if (keysRes.ok) setKeys((await keysRes.json()).keys)
     if (statsRes.ok) setStats(await statsRes.json())
+    if (sendersRes.ok) {
+      const data = await sendersRes.json()
+      setOtpSenders(
+        (data.senders || []).filter(
+          (s: { statut: string; type_message: string | null }) =>
+            s.statut === 'APPROVED' && s.type_message === 'OTP'
+        )
+      )
+    }
     setLoading(false)
   }, [])
 
@@ -191,6 +297,9 @@ export default function OtpPage() {
   }
 
   const removeKey = (id: string) => setKeys((prev) => prev.filter((k) => k.id !== id))
+
+  const updateKey = (id: string, default_otp_sender: string | null) =>
+    setKeys((prev) => prev.map((k) => k.id === id ? { ...k, default_otp_sender } : k))
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
@@ -334,10 +443,30 @@ export default function OtpPage() {
           ) : (
             <div className="space-y-3">
               {keys.map((k) => (
-                <ApiKeyRow key={k.id} apiKey={k} onDelete={removeKey} />
+                <ApiKeyRow key={k.id} apiKey={k} otpSenders={otpSenders} onDelete={removeKey} onUpdate={updateKey} />
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ---- Senders OTP disponibles ---- */}
+      {otpSenders.length > 0 && (
+        <div className="bg-surface border border-border rounded-xl p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <Tag className="w-4 h-4 text-secondary" />
+            <h3 className="font-syne font-semibold text-sm text-foreground">
+              Vos senders OTP approuvés
+            </h3>
+          </div>
+          <p className="text-xs text-foreground-muted">
+            Utilisez le nom exact dans le paramètre <code className="text-primary bg-primary/10 px-1 py-0.5 rounded text-xs">sender</code> de votre requête API.
+          </p>
+          <div className="space-y-2">
+            {otpSenders.map((s) => (
+              <OtpSenderBadge key={s.id} nom={s.nom} />
+            ))}
+          </div>
         </div>
       )}
 
@@ -423,6 +552,61 @@ export default function OtpPage() {
             <div className="bg-surface border border-border rounded-xl p-4">
               <p className="font-medium text-foreground mb-1">Coût</p>
               <p className="text-foreground-muted text-xs"><strong className="text-foreground">1 SMS</strong> débité par OTP envoyé</p>
+            </div>
+          </div>
+
+          {/* ---- Séparateur SMS API ---- */}
+          <div className="border-t border-border pt-6">
+            <h3 className="font-syne font-semibold text-foreground mb-4">API SMS — Envoi programmatique</h3>
+            <p className="text-xs text-foreground-muted mb-4">
+              Envoyez des SMS transactionnels ou promotionnels depuis vos applications via la même clé API.
+              Le sender doit être de type <strong className="text-foreground">Transactionnel</strong> ou <strong className="text-foreground">Promotionnel</strong> et approuvé.
+            </p>
+          </div>
+
+          {/* Endpoint SMS public */}
+          <div className="bg-surface border border-border rounded-xl overflow-hidden">
+            <div className="px-5 py-3 border-b border-border flex items-center gap-3">
+              <span className="text-xs font-bold bg-secondary/10 text-secondary px-2 py-0.5 rounded">POST</span>
+              <code className="text-sm text-foreground">/api/sms/public</code>
+              <span className="text-xs text-foreground-muted">Envoyer un SMS</span>
+            </div>
+            <div className="p-5">
+              <p className="text-xs text-foreground-muted mb-3 font-medium uppercase tracking-wide">Requête</p>
+              <pre className="bg-background rounded-lg p-4 text-xs text-foreground-muted overflow-x-auto font-mono">
+{`curl -X POST https://votredomaine.com/api/sms/public \\
+  -H "Content-Type: application/json" \\
+  -H "X-API-Key: tp_live_votreclé" \\
+  -d '{
+    "to": "+2250700000001",
+    "message": "Votre commande #1234 a été expédiée.",
+    "sender": "MONSENDER"
+  }'`}
+              </pre>
+              <p className="text-xs text-foreground-muted mt-4 mb-3 font-medium uppercase tracking-wide">Réponse (succès)</p>
+              <pre className="bg-background rounded-lg p-4 text-xs text-secondary overflow-x-auto font-mono">
+{`{
+  "success": true,
+  "message": "SMS envoyé au +2250700000001",
+  "message_id": "cm...",
+  "cost_sms": 1
+}`}
+              </pre>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+            <div className="bg-surface border border-border rounded-xl p-4">
+              <p className="font-medium text-foreground mb-1">Sender requis</p>
+              <p className="text-foreground-muted text-xs">Sender approuvé de type <strong className="text-foreground">Transactionnel</strong> ou <strong className="text-foreground">Promotionnel</strong></p>
+            </div>
+            <div className="bg-surface border border-border rounded-xl p-4">
+              <p className="font-medium text-foreground mb-1">Longueur max</p>
+              <p className="text-foreground-muted text-xs"><strong className="text-foreground">918 caractères</strong> (6 SMS). Coût calculé automatiquement.</p>
+            </div>
+            <div className="bg-surface border border-border rounded-xl p-4">
+              <p className="font-medium text-foreground mb-1">Coût</p>
+              <p className="text-foreground-muted text-xs"><strong className="text-foreground">1 SMS</strong> ≤ 160 chars, <strong className="text-foreground">+1</strong> par tranche de 153 chars</p>
             </div>
           </div>
         </div>

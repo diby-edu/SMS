@@ -206,7 +206,7 @@ export default function AdminSendersPage() {
                     </button>
 
                     {/* Actions selon le statut */}
-                    {tab === 'PENDING' && (
+                    {(tab === 'PENDING' || (tab === 'ALL' && sender.statut === 'PENDING')) && (
                       <>
                         <Button
                           variant="secondary"
@@ -229,7 +229,7 @@ export default function AdminSendersPage() {
                       </>
                     )}
 
-                    {tab === 'SUBMITTED' && (
+                    {(tab === 'SUBMITTED' || (tab === 'ALL' && sender.statut === 'SUBMITTED')) && (
                       <>
                         <Button
                           variant="secondary"
@@ -252,7 +252,7 @@ export default function AdminSendersPage() {
                       </>
                     )}
 
-                    {tab === 'APPROVED' && (
+                    {(tab === 'APPROVED' || (tab === 'ALL' && sender.statut === 'APPROVED')) && (
                       <Button
                         variant="secondary"
                         size="sm"
@@ -265,7 +265,7 @@ export default function AdminSendersPage() {
                       </Button>
                     )}
 
-                    {tab === 'DISABLED' && (
+                    {(tab === 'DISABLED' || (tab === 'ALL' && sender.statut === 'DISABLED')) && (
                       <Button
                         size="sm"
                         loading={processingId === sender.id}
@@ -276,7 +276,7 @@ export default function AdminSendersPage() {
                       </Button>
                     )}
 
-                    {tab === 'REJECTED' && (
+                    {(tab === 'REJECTED' || (tab === 'ALL' && sender.statut === 'REJECTED')) && (
                       <Button
                         size="sm"
                         loading={processingId === sender.id}

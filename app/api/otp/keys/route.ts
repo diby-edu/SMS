@@ -28,6 +28,7 @@ export async function GET() {
       name: true,
       key: true,
       is_active: true,
+      default_otp_sender: true,
       last_used: true,
       created_at: true,
       _count: { select: { otpCodes: true } },

@@ -28,7 +28,7 @@ const NAV_ITEMS = [
   { href: '/historique', label: 'Historique', icon: History },
   { href: '/contacts', label: 'Contacts', icon: Users },
   { href: '/senders', label: 'Senders', icon: Tag },
-  { href: '/otp', label: 'Vérification OTP', icon: ShieldCheck },
+  { href: '/otp', label: 'API & Intégrations', icon: ShieldCheck },
 ]
 
 // ============================================================

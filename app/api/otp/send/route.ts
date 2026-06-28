@@ -77,7 +77,8 @@ export async function POST(req: NextRequest) {
     }
 
     // ---- Résolution du sender ----
-    let senderName = OTP_SENDER_FALLBACK
+    // Priorité : body > default_otp_sender de la clé > fallback 'TextoPro'
+    let senderName = keyRecord.default_otp_sender || OTP_SENDER_FALLBACK
     if (sender && typeof sender === 'string') {
       // Vérifier que le sender appartient au client, est APPROVED et de type OTP
       const senderRecord = await prisma.sender.findFirst({

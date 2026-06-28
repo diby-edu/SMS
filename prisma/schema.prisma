@@ -196,15 +196,16 @@ model Transaction {
   @@map("transactions")
 }
 
-// Clé API générée par le client pour utiliser l'API OTP de TextoPro
+// Clé API générée par le client pour utiliser l'API TextoPro (OTP + SMS)
 model ApiKey {
-  id         String    @id @default(cuid())
-  user_id    String
-  name       String    // Nom de l'application (ex: "Mon App Mobile")
-  key        String    @unique // Format: tp_live_xxxxxxxxxxxxxxxxxxxx
-  is_active  Boolean   @default(true)
-  last_used  DateTime?
-  created_at DateTime  @default(now())
+  id                 String    @id @default(cuid())
+  user_id            String
+  name               String    // Nom de l'application (ex: "Mon App Mobile")
+  key                String    @unique // Format: tp_live_xxxxxxxxxxxxxxxxxxxx
+  is_active          Boolean   @default(true)
+  default_otp_sender String?   // Nom du sender OTP utilisé par défaut (null = TextoPro)
+  last_used          DateTime?
+  created_at         DateTime  @default(now())
 
   user     User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
   otpCodes OtpCode[]
