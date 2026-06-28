@@ -9,6 +9,8 @@ import {
   MessageSquare,
   AlertTriangle,
   BarChart3,
+  Layers,
+  ShieldCheck,
 } from 'lucide-react'
 import StatsCard from '@/components/dashboard/StatsCard'
 import { formatFCFA } from '@/lib/utils'
@@ -103,7 +105,7 @@ export default async function AdminPage() {
       )}
 
       {/* ---- Stats principales ---- */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <StatsCard
           title="Clients total"
           value={totalClients}
@@ -121,20 +123,30 @@ export default async function AdminPage() {
         <StatsCard
           title="Revenus ce mois"
           value={formatFCFA(revenusCeMois)}
-          subtitle={`Total : ${formatFCFA(revenusTotal)}`}
+          subtitle={`Total cumulé : ${formatFCFA(revenusTotal)}`}
           icon={TrendingUp}
           iconColor="warning"
         />
         <StatsCard
           title="Solde LeTexto"
           value={letextoBalance !== null ? `${letextoBalance.toLocaleString('fr-FR')} SMS` : 'N/A'}
-          subtitle={
-            margeLetexto !== null
-              ? `Stock clients : ${smsStockClients.toLocaleString('fr-FR')} SMS — Marge : ${margeLetexto.toLocaleString('fr-FR')} SMS`
-              : 'Solde disponible'
-          }
+          subtitle="Crédits disponibles chez LeTexto"
           icon={MessageSquare}
           iconColor={alerteBalance ? 'danger' : 'secondary'}
+        />
+        <StatsCard
+          title="Stock SMS clients"
+          value={`${smsStockClients.toLocaleString('fr-FR')} SMS`}
+          subtitle="SMS achetés non encore envoyés"
+          icon={Layers}
+          iconColor="warning"
+        />
+        <StatsCard
+          title="Marge LeTexto"
+          value={margeLetexto !== null ? `${margeLetexto.toLocaleString('fr-FR')} SMS` : 'N/A'}
+          subtitle="Solde LeTexto − stock clients"
+          icon={ShieldCheck}
+          iconColor={margeLetexto !== null && margeLetexto < 500 ? 'danger' : 'secondary'}
         />
       </div>
 

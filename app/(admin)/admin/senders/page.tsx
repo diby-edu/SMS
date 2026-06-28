@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
 import {
   Tag, CheckCircle2, XCircle, Clock, Loader2, ChevronDown, ChevronUp, Download, Send, Ban,
@@ -48,6 +48,31 @@ export default function AdminSendersPage() {
   const [loading, setLoading] = useState(true)
   const [processingId, setProcessingId] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [exporting, setExporting] = useState(false)
+
+  const handleExport = useCallback(async () => {
+    setExporting(true)
+    try {
+      const res = await fetch(`/api/admin/senders/export-all?statut=PENDING`)
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        toast.error(data.error || 'Aucun sender PENDING à exporter')
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      const date = new Date().toISOString().slice(0, 10)
+      a.href = url
+      a.download = `senders-letexto-${date}.xlsx`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast.error('Erreur lors de l\'export')
+    } finally {
+      setExporting(false)
+    }
+  }, [])
 
   useEffect(() => {
     setLoading(true)
@@ -91,15 +116,15 @@ export default function AdminSendersPage() {
             Senders de vos clients — soumettez à LeTexto, validez ou désactivez
           </p>
         </div>
-        <a
-          href="/api/admin/senders/export-all?statut=PENDING"
-          download
+        <button
+          onClick={handleExport}
+          disabled={exporting}
           title="Exporter tous les senders en attente (format LeTexto)"
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-colors shrink-0"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-colors shrink-0 disabled:opacity-50"
         >
-          <Download className="w-4 h-4" />
+          {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
           Exporter tout (XLSX)
-        </a>
+        </button>
       </div>
 
       {/* Tabs */}
