@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { name } = body
+  const { name, default_otp_sender } = body
 
   if (!name || typeof name !== 'string' || name.trim().length < 2) {
     return NextResponse.json(
@@ -66,11 +66,30 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  // Valider le sender OTP par défaut si fourni
+  if (default_otp_sender) {
+    const senderRecord = await prisma.sender.findFirst({
+      where: {
+        user_id: session.user.id,
+        nom: default_otp_sender,
+        statut: 'APPROVED',
+        type_message: 'OTP',
+      },
+    })
+    if (!senderRecord) {
+      return NextResponse.json(
+        { error: 'Sender OTP introuvable ou non approuvé' },
+        { status: 400 }
+      )
+    }
+  }
+
   const newKey = await prisma.apiKey.create({
     data: {
       user_id: session.user.id,
       name: name.trim(),
       key: generateApiKey(),
+      default_otp_sender: default_otp_sender || null,
     },
   })
 

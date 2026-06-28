@@ -247,6 +247,7 @@ export default function OtpPage() {
   const [otpSenders, setOtpSenders] = useState<OtpSender[]>([])
   const [loading, setLoading] = useState(true)
   const [newKeyName, setNewKeyName] = useState('')
+  const [newKeyDefaultSender, setNewKeyDefaultSender] = useState('')
   const [creating, setCreating] = useState(false)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [error, setError] = useState('')
@@ -284,12 +285,16 @@ export default function OtpPage() {
       const res = await fetch('/api/otp/keys', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newKeyName.trim() }),
+        body: JSON.stringify({
+          name: newKeyName.trim(),
+          default_otp_sender: newKeyDefaultSender || null,
+        }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error); return }
       setKeys((prev) => [data.key, ...prev])
       setNewKeyName('')
+      setNewKeyDefaultSender('')
       setShowCreateForm(false)
     } finally {
       setCreating(false)
@@ -308,10 +313,10 @@ export default function OtpPage() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <ShieldCheck className="w-5 h-5 text-primary" />
-            <h1 className="font-syne font-bold text-xl text-foreground">Vérification OTP</h1>
+            <h1 className="font-syne font-bold text-xl text-foreground">API &amp; Intégrations</h1>
           </div>
           <p className="text-sm text-foreground-muted">
-            Intégrez l&apos;envoi et la vérification de codes OTP dans vos applications via l&apos;API TextoPro.
+            Intégrez l&apos;OTP et l&apos;envoi de SMS dans vos applications via l&apos;API TextoPro.
           </p>
         </div>
       </div>
@@ -392,16 +397,39 @@ export default function OtpPage() {
           {/* Formulaire création */}
           {showCreateForm && (
             <form onSubmit={createKey} className="bg-surface border border-primary/30 rounded-xl p-4 space-y-3">
-              <p className="text-sm font-medium text-foreground">Nom de votre application</p>
-              <input
-                type="text"
-                value={newKeyName}
-                onChange={(e) => setNewKeyName(e.target.value)}
-                placeholder="Ex: Mon App Mobile, Site E-commerce..."
-                maxLength={50}
-                className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder:text-foreground-subtle focus:outline-none focus:border-primary transition-colors"
-                autoFocus
-              />
+              <div>
+                <label className="text-sm font-medium text-foreground block mb-1.5">Nom de votre application</label>
+                <input
+                  type="text"
+                  value={newKeyName}
+                  onChange={(e) => setNewKeyName(e.target.value)}
+                  placeholder="Ex: Mon App Mobile, Site E-commerce..."
+                  maxLength={50}
+                  className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder:text-foreground-subtle focus:outline-none focus:border-primary transition-colors"
+                  autoFocus
+                />
+              </div>
+              {otpSenders.length > 0 && (
+                <div>
+                  <label className="text-sm font-medium text-foreground block mb-1.5">
+                    Sender OTP par défaut
+                    <span className="text-foreground-subtle font-normal ml-1">(optionnel)</span>
+                  </label>
+                  <select
+                    value={newKeyDefaultSender}
+                    onChange={(e) => setNewKeyDefaultSender(e.target.value)}
+                    className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-primary transition-colors"
+                  >
+                    <option value="">TextoPro (sender système par défaut)</option>
+                    {otpSenders.map((s) => (
+                      <option key={s.id} value={s.nom}>{s.nom}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-foreground-subtle mt-1">
+                    Ce sender sera utilisé automatiquement si vous ne précisez pas le champ <code className="text-primary">sender</code> dans vos appels API.
+                  </p>
+                </div>
+              )}
               {error && <p className="text-xs text-danger">{error}</p>}
               <div className="flex gap-2">
                 <button
@@ -413,7 +441,7 @@ export default function OtpPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setShowCreateForm(false); setError('') }}
+                  onClick={() => { setShowCreateForm(false); setError(''); setNewKeyDefaultSender('') }}
                   className="px-4 py-2.5 border border-border rounded-lg text-sm text-foreground-muted hover:text-foreground transition-colors"
                 >
                   Annuler
