@@ -2,6 +2,7 @@
  * Client API PayDunya
  * Gestion des paiements mobiles : Orange Money, MTN, Wave, Moov, Free Money
  * Documentation : https://paydunya.com/developers
+ * Note: l'URL de paiement est retournée dans response_text (domaine payment.paydunya.com)
  */
 
 import axios from 'axios'
