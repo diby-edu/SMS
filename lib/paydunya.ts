@@ -119,6 +119,16 @@ export async function createPayDunyaInvoice(
     throw new Error(`PayDunya error: ${response.data.response_text}`)
   }
 
+  // Certains comptes PayDunya ne retournent pas invoice_url directement
+  // On construit l'URL à partir du token si absent
+  const token = response.data.token
+  if (!response.data.invoice_url && token) {
+    const baseCheckout = mode === 'test'
+      ? 'https://app.paydunya.com/sandbox-checkout-invoice/confirm'
+      : 'https://app.paydunya.com/checkout-invoice/confirm'
+    response.data.invoice_url = `${baseCheckout}/${token}`
+  }
+
   return response.data
 }
 

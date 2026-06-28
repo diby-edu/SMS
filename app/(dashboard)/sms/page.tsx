@@ -15,19 +15,11 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import Button from '@/components/ui/Button'
-import { cn, getSMSPartCount, formatFCFA, COUNTRY_PHONE_PREFIXES } from '@/lib/utils'
+import { cn, getSMSPartCount, formatFCFA } from '@/lib/utils'
 
 // ============================================================
 // CONSTANTES
 // ============================================================
-
-const PAYS = Object.entries(COUNTRY_PHONE_PREFIXES).map(([code, { name, prefix }]) => ({
-  code,
-  name,
-  prefix,
-}))
-
-const CHAMPS_DYNAMIQUES = ['{nom}', '{prenom}', '{telephone}']
 
 // ============================================================
 // TYPES
@@ -51,10 +43,7 @@ type Source = 'manuel' | 'groupe'
 // HELPERS
 // ============================================================
 
-function parseManualNumbers(
-  input: string,
-  prefix: string
-): { phone: string }[] {
+function parseManualNumbers(input: string): { phone: string }[] {
   return input
     .split(/[;,\n]+/)
     .map((s) => s.trim())
@@ -64,11 +53,11 @@ function parseManualNumbers(
       let phone = cleaned
       if (!phone.startsWith('+')) {
         if (phone.startsWith('00')) phone = '+' + phone.slice(2)
-        else phone = `${prefix}${phone.replace(/^0/, '')}`
+        // Si le numéro ne commence pas par +, on garde tel quel (validation échouera si trop court)
       }
       return { phone }
     })
-    .filter((c) => c.phone.length >= 10)
+    .filter((c) => c.phone.startsWith('+') && c.phone.length >= 10)
 }
 
 // ============================================================
@@ -89,7 +78,6 @@ export default function SMSPage() {
   const [senderNom, setSenderNom] = useState('')
   const [source, setSource] = useState<Source>('manuel')
   const [manuelInput, setManuelInput] = useState('')
-  const [countryCode, setCountryCode] = useState('CI')
   const [groupId, setGroupId] = useState('')
   const [content, setContent] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -99,13 +87,12 @@ export default function SMSPage() {
   const [result, setResult] = useState<{ nb: number; solde: number } | null>(null)
 
   const soldeSMS = session?.user?.solde_sms ?? 0
-  const selectedCountry = PAYS.find((p) => p.code === countryCode)
   const partCount = getSMSPartCount(content)
 
   // Calcul nb contacts
   const parsedContacts =
     source === 'manuel'
-      ? parseManualNumbers(manuelInput, selectedCountry?.prefix ?? '+225')
+      ? parseManualNumbers(manuelInput)
       : []
 
   const selectedGroup = contactLists.find((l) => l.id === groupId)
@@ -137,11 +124,6 @@ export default function SMSPage() {
       setPrixSMS(prixData.prix ?? 30)
     }).catch(() => {})
   }, [])
-
-  // ---- Insertion champ dynamique ----
-  const insertDynamic = (tag: string) => {
-    setContent((prev) => prev + tag)
-  }
 
   // ---- Validation ----
   const validate = () => {
@@ -411,25 +393,10 @@ export default function SMSPage() {
             {/* Saisie manuelle */}
             {source === 'manuel' && (
               <div className="space-y-2">
-                {/* Pays par défaut */}
-                <div className="flex items-center gap-2">
-                  <label className="text-xs text-foreground-subtle shrink-0">Pays par défaut :</label>
-                  <select
-                    value={countryCode}
-                    onChange={(e) => setCountryCode(e.target.value)}
-                    className="input py-1 text-xs w-auto"
-                  >
-                    {PAYS.map((p) => (
-                      <option key={p.code} value={p.code}>
-                        {p.name} ({p.prefix})
-                      </option>
-                    ))}
-                  </select>
-                </div>
                 <textarea
                   value={manuelInput}
                   onChange={(e) => setManuelInput(e.target.value)}
-                  placeholder={`Ex: 0707000001; 0707000002; 0707000003\nUn numéro par ligne ou séparés par \";\"\nLes numéros locaux seront préfixés avec ${selectedCountry?.prefix}`}
+                  placeholder={`Entrez les numéros avec indicatif pays\nEx: +2250707000001; +2210707000002\nUn numéro par ligne ou séparés par \";\"`}
                   rows={4}
                   className={cn(
                     'input resize-none font-mono text-sm',
@@ -497,25 +464,12 @@ export default function SMSPage() {
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="label mb-0">Message</label>
-              <div className="flex items-center gap-1">
-                <span className="text-xs text-foreground-subtle mr-1">Personnaliser :</span>
-                {CHAMPS_DYNAMIQUES.map((tag) => (
-                  <button
-                    key={tag}
-                    type="button"
-                    onClick={() => insertDynamic(tag)}
-                    className="text-xs bg-border text-foreground-muted hover:text-primary hover:bg-primary/10 px-1.5 py-0.5 rounded transition-colors font-mono"
-                  >
-                    {tag}
-                  </button>
-                ))}
-              </div>
             </div>
             <div className="relative">
               <textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder="Ex: Bonjour {nom}, profitez de -20% sur toute notre collection jusqu'au 31 juillet. Valable en boutique et en ligne."
+                placeholder="Ex: Bonjour, profitez de -20% sur toute notre collection jusqu'au 31 juillet. Valable en boutique et en ligne."
                 rows={5}
                 maxLength={918}
                 className={cn(

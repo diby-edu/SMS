@@ -7,6 +7,8 @@ import { prisma } from '@/lib/prisma'
 const configSchema = z.object({
   prix_sms_fcfa: z.number().min(1).max(1000).optional(),
   letexto_balance_alert: z.number().min(0).optional(),
+  montant_minimum: z.number().min(100).max(100000).optional(),
+  montants_rapides: z.array(z.number().min(100).max(500000)).min(1).max(10).optional(),
 })
 
 export async function GET(req: NextRequest) {
@@ -35,7 +37,7 @@ export async function PATCH(req: NextRequest) {
 
   const config = existing
     ? await prisma.appConfig.update({ where: { id: existing.id }, data: result.data })
-    : await prisma.appConfig.create({ data: { ...result.data, prix_sms_fcfa: result.data.prix_sms_fcfa ?? 30 } })
+    : await prisma.appConfig.create({ data: { prix_sms_fcfa: 30, ...result.data } })
 
   return NextResponse.json({ config })
 }

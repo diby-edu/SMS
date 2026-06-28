@@ -228,6 +228,8 @@ model AppConfig {
   id                    String   @id @default(cuid())
   prix_sms_fcfa         Int      @default(30)   // Prix de vente client
   letexto_balance_alert Int      @default(1000) // Seuil d'alerte solde LeTexto
+  montant_minimum       Int      @default(500)  // Montant minimum de recharge (FCFA)
+  montants_rapides      Json     @default("[1000,3000,5000,10000,25000,50000]") // Montants rapides affichés sur la page recharge
   updated_at            DateTime @updatedAt
 
   @@map("app_config")

@@ -5,14 +5,12 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { createPayDunyaInvoice } from '@/lib/paydunya'
 
-const PRIX_SMS = parseInt(process.env.NEXT_PUBLIC_PRIX_SMS || '30')
-const MONTANT_MIN = 500   // 500 FCFA minimum
 const MONTANT_MAX = 500000 // 500 000 FCFA maximum
 
 const rechargeSchema = z.object({
   montantFCFA: z
     .number()
-    .min(MONTANT_MIN, `Montant minimum : ${MONTANT_MIN} FCFA`)
+    .min(1)
     .max(MONTANT_MAX, `Montant maximum : ${MONTANT_MAX} FCFA`),
 })
 
@@ -38,11 +36,24 @@ export async function POST(req: NextRequest) {
     }
 
     const { montantFCFA } = result.data
-    const smsCredites = Math.floor(montantFCFA / PRIX_SMS)
+
+    // Lire la config depuis la base pour le prix SMS et le montant minimum
+    const appConfig = await prisma.appConfig.findFirst()
+    const prixSMS = appConfig?.prix_sms_fcfa ?? 30
+    const montantMin = (appConfig as Record<string, unknown>)?.montant_minimum as number ?? 500
+
+    if (montantFCFA < montantMin) {
+      return NextResponse.json(
+        { error: `Montant minimum : ${montantMin} FCFA` },
+        { status: 400 }
+      )
+    }
+
+    const smsCredites = Math.floor(montantFCFA / prixSMS)
 
     if (smsCredites < 1) {
       return NextResponse.json(
-        { error: `Montant trop faible. Minimum : ${PRIX_SMS} FCFA pour 1 SMS.` },
+        { error: `Montant trop faible. Minimum : ${prixSMS} FCFA pour 1 SMS.` },
         { status: 400 }
       )
     }
@@ -70,6 +81,14 @@ export async function POST(req: NextRequest) {
         paydunya_token: invoice.token,
       },
     })
+
+    if (!invoice.invoice_url) {
+      console.error('[Recharge] PayDunya n\'a pas retourné invoice_url', invoice)
+      return NextResponse.json(
+        { error: 'Impossible d\'obtenir le lien de paiement. Contactez le support.' },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json({
       invoice_url: invoice.invoice_url,

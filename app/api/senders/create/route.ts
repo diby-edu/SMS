@@ -3,7 +3,6 @@ import { getServerSession } from 'next-auth'
 import { z } from 'zod'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { createLeTextoSender } from '@/lib/letexto'
 
 const createSenderSchema = z.object({
   nom: z
@@ -26,8 +25,8 @@ const createSenderSchema = z.object({
 
 /**
  * POST /api/senders/create
- * Crée un sender + appelle l'API LeTexto automatiquement
- * Statut APPROVED si LeTexto accepte, PENDING sinon
+ * Crée un sender en statut PENDING — l'admin validera manuellement dans le backoffice.
+ * LeTexto sera appelé uniquement lors de la validation admin.
  */
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -60,22 +59,13 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Appel API LeTexto pour créer le sender
-    let statut: 'APPROVED' | 'PENDING' = 'PENDING'
-    try {
-      await createLeTextoSender(nom)
-      statut = 'APPROVED'
-    } catch (letextoError) {
-      console.error('[Sender Create] Erreur LeTexto:', letextoError)
-      // On crée quand même en PENDING — l'admin validera manuellement
-      statut = 'PENDING'
-    }
-
+    // Le sender est toujours créé en PENDING — validation manuelle par l'admin
+    // L'admin appellera LeTexto lors de la validation depuis le backoffice
     const sender = await prisma.sender.create({
       data: {
         user_id: session.user.id,
         nom,
-        statut,
+        statut: 'PENDING',
         type_message,
         description,
         email_contact,

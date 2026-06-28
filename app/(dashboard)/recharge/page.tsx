@@ -20,15 +20,6 @@ import { cn, formatFCFA, fcfaToSMS, formatDate, getStatusColor } from '@/lib/uti
 // CONSTANTES
 // ============================================================
 
-const MONTANTS_RAPIDES = [
-  { fcfa: 1000, label: '1 000 FCFA' },
-  { fcfa: 3000, label: '3 000 FCFA' },
-  { fcfa: 5000, label: '5 000 FCFA' },
-  { fcfa: 10000, label: '10 000 FCFA' },
-  { fcfa: 25000, label: '25 000 FCFA' },
-  { fcfa: 50000, label: '50 000 FCFA' },
-]
-
 const METHODES_PAIEMENT = [
   { label: 'Orange Money CI', icon: '🟠' },
   { label: 'MTN MoMo CI', icon: '🟡' },
@@ -59,6 +50,8 @@ export default function RechargePage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loadingHistory, setLoadingHistory] = useState(true)
   const [prixSMS, setPrixSMS] = useState(30)
+  const [montantMinimum, setMontantMinimum] = useState(500)
+  const [montantsRapides, setMontantsRapides] = useState<number[]>([1000, 3000, 5000, 10000, 25000, 50000])
 
   const soldeSMS = session?.user?.solde_sms ?? 0
   const smsObtenus = montant ? fcfaToSMS(Number(montant), prixSMS) : 0
@@ -75,6 +68,10 @@ export default function RechargePage() {
     if (prixRes.ok) {
       const p = await prixRes.json()
       setPrixSMS(p.prix ?? 30)
+      setMontantMinimum(p.montant_minimum ?? 500)
+      if (Array.isArray(p.montants_rapides) && p.montants_rapides.length > 0) {
+        setMontantsRapides(p.montants_rapides)
+      }
     }
     setLoadingHistory(false)
   }, [])
@@ -87,8 +84,8 @@ export default function RechargePage() {
   }
 
   const handlePayer = async () => {
-    if (!montant || Number(montant) < 500) {
-      toast.error('Montant minimum : 500 FCFA')
+    if (!montant || Number(montant) < montantMinimum) {
+      toast.error(`Montant minimum : ${montantMinimum.toLocaleString('fr-FR')} FCFA`)
       return
     }
 
@@ -167,7 +164,7 @@ export default function RechargePage() {
         <div>
           <label className="label">Montant</label>
           <div className="grid grid-cols-3 gap-2">
-            {MONTANTS_RAPIDES.map(({ fcfa, label }) => (
+            {montantsRapides.map((fcfa) => (
               <button
                 key={fcfa}
                 onClick={() => handleMontantRapide(fcfa)}
@@ -178,7 +175,7 @@ export default function RechargePage() {
                     : 'border-border text-foreground-muted hover:border-primary/40 hover:text-foreground'
                 )}
               >
-                <span className="block">{label}</span>
+                <span className="block">{fcfa.toLocaleString('fr-FR')} FCFA</span>
                 <span
                   className={cn(
                     'block mt-0.5 font-normal',
@@ -198,7 +195,7 @@ export default function RechargePage() {
           <div className="relative">
             <input
               type="number"
-              min={500}
+              min={montantMinimum}
               max={500000}
               step={100}
               placeholder="Ex: 7500"
@@ -266,7 +263,7 @@ export default function RechargePage() {
         <Button
           onClick={handlePayer}
           loading={loading}
-          disabled={!montant || Number(montant) < 500}
+          disabled={!montant || Number(montant) < montantMinimum}
           fullWidth
           size="lg"
           leftIcon={<CreditCard className="w-4 h-4" />}
