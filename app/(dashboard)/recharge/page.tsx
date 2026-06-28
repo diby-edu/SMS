@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import {
   CreditCard,
@@ -11,10 +10,10 @@ import {
   History,
   CheckCircle2,
   Loader2,
-  Smartphone,
+  TrendingDown,
 } from 'lucide-react'
 import Button from '@/components/ui/Button'
-import { cn, formatFCFA, fcfaToSMS, formatDate, getStatusColor } from '@/lib/utils'
+import { cn, formatFCFA, getPrixFromPaliers, type PalierPrix, formatDate, getStatusColor } from '@/lib/utils'
 
 // ============================================================
 // CONSTANTES
@@ -45,18 +44,29 @@ interface Transaction {
 
 export default function RechargePage() {
   const { data: session } = useSession()
-  const router = useRouter()
 
   const [montant, setMontant] = useState<number | ''>('')
   const [loading, setLoading] = useState(false)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loadingHistory, setLoadingHistory] = useState(true)
-  const [prixSMS, setPrixSMS] = useState(30)
+  const [prixDefaut, setPrixDefaut] = useState(30)
   const [montantMinimum, setMontantMinimum] = useState(500)
   const [montantsRapides, setMontantsRapides] = useState<number[]>([1000, 3000, 5000, 10000, 25000, 50000])
+  const [paliers, setPaliers] = useState<PalierPrix[]>([])
 
   const soldeSMS = session?.user?.solde_sms ?? 0
-  const smsObtenus = montant ? fcfaToSMS(Number(montant), prixSMS) : 0
+
+  // Prix applicable au montant saisi
+  const prixApplique = montant
+    ? getPrixFromPaliers(Number(montant), paliers, prixDefaut)
+    : prixDefaut
+
+  const smsObtenus = montant ? Math.floor(Number(montant) / prixApplique) : 0
+
+  // Palier actif pour mise en évidence
+  const palierActif = montant
+    ? [...paliers].sort((a, b) => b.montant - a.montant).find((p) => Number(montant) >= p.montant) ?? null
+    : null
 
   const loadData = useCallback(async () => {
     const [rechargeRes, prixRes] = await Promise.all([
@@ -69,16 +79,18 @@ export default function RechargePage() {
     }
     if (prixRes.ok) {
       const p = await prixRes.json()
-      setPrixSMS(p.prix ?? 30)
+      setPrixDefaut(p.prix ?? 30)
       setMontantMinimum(p.montant_minimum ?? 500)
       if (Array.isArray(p.montants_rapides) && p.montants_rapides.length > 0) {
         setMontantsRapides(p.montants_rapides)
+      }
+      if (Array.isArray(p.paliers) && p.paliers.length > 0) {
+        setPaliers(p.paliers)
       }
     }
     setLoadingHistory(false)
   }, [])
 
-  // ---- Charger l'historique + prix ----
   useEffect(() => { loadData() }, [loadData])
 
   const handleMontantRapide = (fcfa: number) => {
@@ -107,7 +119,6 @@ export default function RechargePage() {
         return
       }
 
-      // Ouvrir la page de paiement PayDunya dans un nouvel onglet
       window.open(data.invoice_url, '_blank')
     } catch {
       toast.error('Erreur réseau. Veuillez réessayer.')
@@ -160,34 +171,93 @@ export default function RechargePage() {
         </div>
       </div>
 
+      {/* ---- Paliers de tarification ---- */}
+      {paliers.length > 0 && (
+        <div className="bg-surface border border-border rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <TrendingDown className="w-4 h-4 text-secondary" />
+            <h3 className="font-syne font-semibold text-sm text-foreground">
+              Tarification dégressive
+            </h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-foreground-subtle uppercase tracking-wider">
+                  <th className="text-left pb-2 font-medium">Montant rechargé</th>
+                  <th className="text-center pb-2 font-medium">Taux</th>
+                  <th className="text-right pb-2 font-medium">SMS obtenus</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {[...paliers]
+                  .sort((a, b) => a.montant - b.montant)
+                  .map((p) => {
+                    const isActive = palierActif?.montant === p.montant
+                    return (
+                      <tr
+                        key={p.montant}
+                        className={cn(
+                          'transition-colors',
+                          isActive ? 'bg-secondary/5' : ''
+                        )}
+                      >
+                        <td className={cn('py-2 font-medium', isActive ? 'text-secondary' : 'text-foreground-muted')}>
+                          {isActive && <CheckCircle2 className="w-3 h-3 inline mr-1.5 text-secondary" />}
+                          {p.montant >= 1000000
+                            ? `≥ ${(p.montant / 1000000).toLocaleString('fr-FR')} M FCFA`
+                            : `≥ ${p.montant.toLocaleString('fr-FR')} FCFA`}
+                        </td>
+                        <td className={cn('py-2 text-center font-bold', isActive ? 'text-secondary' : 'text-foreground')}>
+                          {p.taux} FCFA/SMS
+                        </td>
+                        <td className={cn('py-2 text-right', isActive ? 'text-secondary font-semibold' : 'text-foreground-muted')}>
+                          {Math.floor(p.montant / p.taux).toLocaleString('fr-FR')} SMS min
+                        </td>
+                      </tr>
+                    )
+                  })}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs text-foreground-subtle mt-3">
+            Le taux s'applique à la totalité du montant rechargé selon le palier atteint.
+          </p>
+        </div>
+      )}
+
       {/* ---- Formulaire de recharge ---- */}
       <div className="bg-surface border border-border rounded-2xl p-6 space-y-5">
         {/* Montants rapides */}
         <div>
           <label className="label">Montant</label>
           <div className="grid grid-cols-3 gap-2">
-            {montantsRapides.map((fcfa) => (
-              <button
-                key={fcfa}
-                onClick={() => handleMontantRapide(fcfa)}
-                className={cn(
-                  'px-3 py-2.5 rounded-lg border text-xs font-semibold transition-all duration-150',
-                  montant === fcfa
-                    ? 'border-primary bg-primary/10 text-primary'
-                    : 'border-border text-foreground-muted hover:border-primary/40 hover:text-foreground'
-                )}
-              >
-                <span className="block">{fcfa.toLocaleString('fr-FR')} FCFA</span>
-                <span
+            {montantsRapides.map((fcfa) => {
+              const taux = getPrixFromPaliers(fcfa, paliers, prixDefaut)
+              const sms = Math.floor(fcfa / taux)
+              return (
+                <button
+                  key={fcfa}
+                  onClick={() => handleMontantRapide(fcfa)}
                   className={cn(
-                    'block mt-0.5 font-normal',
-                    montant === fcfa ? 'text-primary/70' : 'text-foreground-subtle'
+                    'px-3 py-2.5 rounded-lg border text-xs font-semibold transition-all duration-150',
+                    montant === fcfa
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border text-foreground-muted hover:border-primary/40 hover:text-foreground'
                   )}
                 >
-                  {fcfaToSMS(fcfa, prixSMS)} SMS
-                </span>
-              </button>
-            ))}
+                  <span className="block">{fcfa.toLocaleString('fr-FR')} FCFA</span>
+                  <span
+                    className={cn(
+                      'block mt-0.5 font-normal',
+                      montant === fcfa ? 'text-primary/70' : 'text-foreground-subtle'
+                    )}
+                  >
+                    {sms.toLocaleString('fr-FR')} SMS
+                  </span>
+                </button>
+              )
+            })}
           </div>
         </div>
 
@@ -198,9 +268,9 @@ export default function RechargePage() {
             <input
               type="number"
               min={montantMinimum}
-              max={500000}
+              max={1000000}
               step={100}
-              placeholder="Ex: 7500"
+              placeholder="Ex: 75000"
               value={montant}
               onChange={(e) =>
                 setMontant(e.target.value ? Number(e.target.value) : '')
@@ -223,15 +293,25 @@ export default function RechargePage() {
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-foreground-muted">SMS crédités</span>
-              <span className="text-sm font-bold text-primary">
-                +{smsObtenus.toLocaleString('fr-FR')} SMS
+              <span className="text-sm text-foreground-muted">Taux appliqué</span>
+              <span className={cn(
+                'text-sm font-semibold',
+                palierActif ? 'text-secondary' : 'text-foreground-muted'
+              )}>
+                {prixApplique} FCFA/SMS
+                {palierActif && (
+                  <span className="ml-1 text-xs font-normal text-secondary/70">
+                    (palier ≥ {palierActif.montant >= 1000000
+                      ? `${palierActif.montant / 1000000}M`
+                      : palierActif.montant.toLocaleString('fr-FR')} FCFA)
+                  </span>
+                )}
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-foreground-muted">Prix unitaire</span>
-              <span className="text-sm text-foreground-muted">
-                {prixSMS} FCFA / SMS
+              <span className="text-sm text-foreground-muted">SMS crédités</span>
+              <span className="text-sm font-bold text-primary">
+                +{smsObtenus.toLocaleString('fr-FR')} SMS
               </span>
             </div>
             <div className="border-t border-border pt-2.5 flex justify-between items-center">
@@ -310,7 +390,7 @@ export default function RechargePage() {
               >
                 <div>
                   <p className="text-sm font-medium text-foreground">
-                    {tx.type === 'MANUELLE' ? '0 FCFA' : formatFCFA(tx.montant_fcfa)}
+                    {tx.type === 'MANUELLE' ? '—' : formatFCFA(tx.montant_fcfa)}
                   </p>
                   {tx.type === 'MANUELLE' && (
                     <p className="text-xs text-secondary font-medium">Crédit manuel</p>

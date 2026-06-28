@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
-import { MessageSquare, Bell, Save, Loader2, Plus, Trash2, CreditCard } from 'lucide-react'
+import { MessageSquare, Bell, Save, Loader2, Plus, Trash2, CreditCard, TrendingDown } from 'lucide-react'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
-import { formatFCFA, fcfaToSMS } from '@/lib/utils'
+import { formatFCFA, fcfaToSMS, type PalierPrix } from '@/lib/utils'
 
 interface AppConfig {
   id: string
@@ -13,7 +13,17 @@ interface AppConfig {
   letexto_balance_alert: number
   montant_minimum: number
   montants_rapides: number[]
+  paliers_prix: PalierPrix[]
 }
+
+const DEFAULT_PALIERS: PalierPrix[] = [
+  { montant: 10000,   taux: 30 },
+  { montant: 25000,   taux: 28 },
+  { montant: 50000,   taux: 26 },
+  { montant: 100000,  taux: 24 },
+  { montant: 500000,  taux: 21 },
+  { montant: 1000000, taux: 20 },
+]
 
 export default function AdminConfigPage() {
   const [config, setConfig] = useState<AppConfig | null>(null)
@@ -22,9 +32,11 @@ export default function AdminConfigPage() {
     letexto_balance_alert: 1000,
     montant_minimum: 500,
     montants_rapides: [1000, 3000, 5000, 10000, 25000, 50000],
+    paliers_prix: DEFAULT_PALIERS as PalierPrix[],
   })
   const [newMontant, setNewMontant] = useState('')
   const [editingMontant, setEditingMontant] = useState<{ original: number; value: string } | null>(null)
+  const [newPalier, setNewPalier] = useState({ montant: '', taux: '' })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -41,6 +53,9 @@ export default function AdminConfigPage() {
             montants_rapides: Array.isArray(d.config.montants_rapides)
               ? d.config.montants_rapides
               : [1000, 3000, 5000, 10000, 25000, 50000],
+            paliers_prix: Array.isArray(d.config.paliers_prix) && d.config.paliers_prix.length > 0
+              ? d.config.paliers_prix
+              : DEFAULT_PALIERS,
           })
         }
       })
@@ -52,6 +67,18 @@ export default function AdminConfigPage() {
     if (form.montants_rapides.length === 0) {
       toast.error('Ajoutez au moins un montant rapide')
       return
+    }
+    if (form.paliers_prix.length === 0) {
+      toast.error('Ajoutez au moins un palier de tarification')
+      return
+    }
+    // Vérifier que les taux sont cohérents (ordre décroissant avec montant croissant)
+    const sorted = [...form.paliers_prix].sort((a, b) => a.montant - b.montant)
+    for (let i = 1; i < sorted.length; i++) {
+      if (sorted[i].taux >= sorted[i - 1].taux) {
+        toast.error('Les taux doivent être décroissants quand le montant augmente')
+        return
+      }
     }
     setSaving(true)
     try {
@@ -72,6 +99,7 @@ export default function AdminConfigPage() {
     }
   }
 
+  // ---- Montants rapides ----
   const addMontant = () => {
     const val = parseInt(newMontant)
     if (!val || val < 100) {
@@ -120,6 +148,36 @@ export default function AdminConfigPage() {
     setEditingMontant(null)
   }
 
+  // ---- Paliers ----
+  const addPalier = () => {
+    const montant = parseInt(newPalier.montant)
+    const taux = parseInt(newPalier.taux)
+    if (!montant || montant < 1000) {
+      toast.error('Montant du palier invalide (minimum 1 000 FCFA)')
+      return
+    }
+    if (!taux || taux < 1 || taux > 1000) {
+      toast.error('Taux invalide (entre 1 et 1000 FCFA/SMS)')
+      return
+    }
+    if (form.paliers_prix.some((p) => p.montant === montant)) {
+      toast.error('Un palier avec ce montant existe déjà')
+      return
+    }
+    setForm((prev) => ({
+      ...prev,
+      paliers_prix: [...prev.paliers_prix, { montant, taux }].sort((a, b) => a.montant - b.montant),
+    }))
+    setNewPalier({ montant: '', taux: '' })
+  }
+
+  const removePalier = (montant: number) => {
+    setForm((prev) => ({
+      ...prev,
+      paliers_prix: prev.paliers_prix.filter((p) => p.montant !== montant),
+    }))
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -138,34 +196,102 @@ export default function AdminConfigPage() {
       </div>
 
       <form onSubmit={handleSave} className="space-y-5">
-        {/* Prix SMS */}
+        {/* Prix SMS de base */}
         <div className="bg-surface border border-border rounded-2xl p-5 space-y-4">
           <div className="flex items-center gap-2 pb-3 border-b border-border">
             <MessageSquare className="w-4 h-4 text-primary" />
-            <h3 className="font-syne font-semibold text-sm text-foreground">Tarification</h3>
+            <h3 className="font-syne font-semibold text-sm text-foreground">Taux de base</h3>
           </div>
 
           <Input
-            label="Prix de vente d'un SMS (FCFA)"
+            label="Prix de vente d'un SMS (FCFA) — taux sous tous les paliers"
             type="number"
             min={1}
             max={1000}
             value={form.prix_sms_fcfa}
             onChange={(e) => setForm((p) => ({ ...p, prix_sms_fcfa: Number(e.target.value) }))}
             leftIcon={<MessageSquare className="w-4 h-4" />}
-            hint={`Exemple : 5 000 FCFA = ${fcfaToSMS(5000, form.prix_sms_fcfa)} SMS`}
+            hint={`Appliqué si le montant est inférieur au premier palier`}
           />
+        </div>
 
-          <div className="bg-background border border-border rounded-xl p-4 space-y-2">
-            <p className="text-xs text-foreground-subtle font-medium uppercase tracking-wider">Simulation</p>
-            {[1000, 5000, 10000, 50000].map((montant) => (
-              <div key={montant} className="flex justify-between text-xs">
-                <span className="text-foreground-muted">{formatFCFA(montant)}</span>
-                <span className="text-foreground font-semibold">
-                  = {fcfaToSMS(montant, form.prix_sms_fcfa).toLocaleString('fr-FR')} SMS
-                </span>
-              </div>
-            ))}
+        {/* Paliers de tarification dégressive */}
+        <div className="bg-surface border border-border rounded-2xl p-5 space-y-4">
+          <div className="flex items-center gap-2 pb-3 border-b border-border">
+            <TrendingDown className="w-4 h-4 text-secondary" />
+            <h3 className="font-syne font-semibold text-sm text-foreground">Paliers de tarification dégressive</h3>
+          </div>
+
+          <p className="text-xs text-foreground-subtle">
+            Le taux du palier le plus élevé atteint s'applique à la totalité du montant rechargé.
+            Les taux doivent être décroissants quand le montant augmente.
+          </p>
+
+          {/* Tableau des paliers */}
+          <div className="space-y-1.5">
+            {[...form.paliers_prix]
+              .sort((a, b) => a.montant - b.montant)
+              .map((p) => (
+                <div
+                  key={p.montant}
+                  className="flex items-center gap-3 bg-background border border-border rounded-lg px-3 py-2.5 text-xs"
+                >
+                  <div className="flex-1">
+                    <span className="font-semibold text-foreground">
+                      ≥ {p.montant.toLocaleString('fr-FR')} FCFA
+                    </span>
+                    <span className="text-foreground-subtle ml-2">→</span>
+                    <span className="font-bold text-secondary ml-2">{p.taux} FCFA/SMS</span>
+                    <span className="text-foreground-subtle ml-2">
+                      ({Math.floor(p.montant / p.taux).toLocaleString('fr-FR')} SMS min)
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removePalier(p.montant)}
+                    className="text-foreground-subtle hover:text-danger transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+          </div>
+
+          {/* Ajouter un palier */}
+          <div className="flex gap-2 items-end">
+            <div className="flex-1">
+              <label className="label text-xs">Montant seuil (FCFA)</label>
+              <input
+                type="number"
+                min={1000}
+                max={10000000}
+                placeholder="Ex: 75000"
+                value={newPalier.montant}
+                onChange={(e) => setNewPalier((p) => ({ ...p, montant: e.target.value }))}
+                className="input"
+              />
+            </div>
+            <div className="w-28">
+              <label className="label text-xs">Taux (FCFA/SMS)</label>
+              <input
+                type="number"
+                min={1}
+                max={1000}
+                placeholder="Ex: 25"
+                value={newPalier.taux}
+                onChange={(e) => setNewPalier((p) => ({ ...p, taux: e.target.value }))}
+                className="input"
+              />
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={addPalier}
+              leftIcon={<Plus className="w-3.5 h-3.5" />}
+            >
+              Ajouter
+            </Button>
           </div>
         </div>
 
@@ -235,7 +361,7 @@ export default function AdminConfigPage() {
               <input
                 type="number"
                 min={100}
-                max={500000}
+                max={1000000}
                 placeholder="Ex: 7500"
                 value={newMontant}
                 onChange={(e) => setNewMontant(e.target.value)}

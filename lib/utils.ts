@@ -28,6 +28,27 @@ export function fcfaToSMS(montantFCFA: number, prixParSMS: number = 30): number 
   return Math.floor(montantFCFA / prixParSMS)
 }
 
+export interface PalierPrix {
+  montant: number // Montant seuil minimum pour ce palier (FCFA)
+  taux: number    // Taux applicable FCFA/SMS
+}
+
+/**
+ * Retourne le taux FCFA/SMS applicable selon les paliers de tarification.
+ * Le palier le plus élevé dont le seuil est ≤ montantFCFA est retenu.
+ * Si aucun palier ne correspond (montant trop faible), retourne prixDefaut.
+ */
+export function getPrixFromPaliers(
+  montantFCFA: number,
+  paliers: PalierPrix[],
+  prixDefaut: number = 30
+): number {
+  if (!paliers || paliers.length === 0) return prixDefaut
+  const sorted = [...paliers].sort((a, b) => b.montant - a.montant)
+  const palier = sorted.find((p) => montantFCFA >= p.montant)
+  return palier ? palier.taux : prixDefaut
+}
+
 /** Convertit un nombre de SMS en FCFA */
 export function smsToFCFA(nbSMS: number, prixParSMS: number = 30): number {
   return nbSMS * prixParSMS

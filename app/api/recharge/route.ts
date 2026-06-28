@@ -4,14 +4,15 @@ import { z } from 'zod'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { createPayDunyaInvoice } from '@/lib/paydunya'
+import { getPrixFromPaliers, type PalierPrix } from '@/lib/utils'
 
-const MONTANT_MAX = 500000 // 500 000 FCFA maximum
+const MONTANT_MAX = 1000000 // 1 000 000 FCFA maximum
 
 const rechargeSchema = z.object({
   montantFCFA: z
     .number()
     .min(1)
-    .max(MONTANT_MAX, `Montant maximum : ${MONTANT_MAX} FCFA`),
+    .max(MONTANT_MAX, `Montant maximum : ${MONTANT_MAX.toLocaleString('fr-FR')} FCFA`),
 })
 
 /**
@@ -39,9 +40,12 @@ export async function POST(req: NextRequest) {
 
     // Lire la config depuis la base pour le prix SMS et le montant minimum
     const appConfig = await prisma.appConfig.findFirst()
-    const prixSMS = appConfig?.prix_sms_fcfa ?? 30
+    const prixDefaut = appConfig?.prix_sms_fcfa ?? 30
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const montantMin: number = (appConfig as any)?.montant_minimum ?? 500
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const paliersRaw = (appConfig as any)?.paliers_prix
+    const paliers: PalierPrix[] = Array.isArray(paliersRaw) ? paliersRaw : []
 
     if (montantFCFA < montantMin) {
       return NextResponse.json(
@@ -50,6 +54,8 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // Calcul du prix selon le palier applicable
+    const prixSMS = getPrixFromPaliers(montantFCFA, paliers, prixDefaut)
     const smsCredites = Math.floor(montantFCFA / prixSMS)
 
     if (smsCredites < 1) {
@@ -96,6 +102,7 @@ export async function POST(req: NextRequest) {
       token: invoice.token,
       montant_fcfa: montantFCFA,
       sms_credites: smsCredites,
+      prix_sms: prixSMS,
     })
   } catch (error) {
     console.error('[Recharge] Erreur:', error)
