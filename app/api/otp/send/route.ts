@@ -10,7 +10,7 @@ import { sendSingleSMS } from '@/lib/letexto'
 
 const OTP_EXPIRY_MINUTES = 5
 const MAX_ATTEMPTS = 3
-const OTP_SENDER = 'TextoPro'
+const OTP_SENDER_FALLBACK = 'TextoPro'
 
 // Génère un code numérique à 6 chiffres
 function generateOtpCode(): string {
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
 
     // ---- Validation du body ----
     const body = await req.json()
-    const { phone } = body
+    const { phone, sender } = body
 
     if (!phone || typeof phone !== 'string') {
       return NextResponse.json(
@@ -74,6 +74,27 @@ export async function POST(req: NextRequest) {
         { success: false, message: 'Numéro de téléphone invalide. Format international requis (ex: +2250700000001)' },
         { status: 400 }
       )
+    }
+
+    // ---- Résolution du sender ----
+    let senderName = OTP_SENDER_FALLBACK
+    if (sender && typeof sender === 'string') {
+      // Vérifier que le sender appartient au client, est APPROVED et de type OTP
+      const senderRecord = await prisma.sender.findFirst({
+        where: {
+          user_id: keyRecord.user.id,
+          nom: sender.trim(),
+          statut: 'APPROVED',
+          type_message: 'OTP',
+        },
+      })
+      if (!senderRecord) {
+        return NextResponse.json(
+          { success: false, message: `Sender "${sender}" introuvable, non approuvé ou non de type OTP` },
+          { status: 400 }
+        )
+      }
+      senderName = senderRecord.nom
     }
 
     // ---- Invalider les codes OTP précédents non expirés pour ce numéro ----
@@ -105,7 +126,7 @@ export async function POST(req: NextRequest) {
 
     try {
       await sendSingleSMS({
-        from: OTP_SENDER,
+        from: senderName,
         to: phoneClean,
         content: smsContent,
       })

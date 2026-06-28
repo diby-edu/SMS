@@ -367,8 +367,12 @@ export default function OtpPage() {
 {`curl -X POST https://votredomaine.com/api/otp/send \\
   -H "Content-Type: application/json" \\
   -H "X-API-Key: tp_live_votreclé" \\
-  -d '{"phone": "+2250700000001"}'`}
+  -d '{"phone": "+2250700000001", "sender": "MONAPP"}'`}
               </pre>
+              <div className="mt-3 bg-primary/5 border border-primary/20 rounded-lg px-4 py-3 text-xs text-foreground-muted">
+                <span className="font-semibold text-foreground">sender</span> (optionnel) — nom de votre sender de type OTP approuvé.
+                Si absent, un sender par défaut est utilisé.
+              </div>
               <p className="text-xs text-foreground-muted mt-4 mb-3 font-medium uppercase tracking-wide">Réponse (succès)</p>
               <pre className="bg-background rounded-lg p-4 text-xs text-secondary overflow-x-auto font-mono">
 {`{
