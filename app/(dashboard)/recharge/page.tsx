@@ -310,10 +310,11 @@ export default function RechargePage() {
               >
                 <div>
                   <p className="text-sm font-medium text-foreground">
-                    {tx.type === 'MANUELLE'
-                      ? <span className="text-secondary">Crédit manuel</span>
-                      : formatFCFA(tx.montant_fcfa)}
+                    {tx.type === 'MANUELLE' ? '0 FCFA' : formatFCFA(tx.montant_fcfa)}
                   </p>
+                  {tx.type === 'MANUELLE' && (
+                    <p className="text-xs text-secondary font-medium">Crédit manuel</p>
+                  )}
                   <p className="text-xs text-foreground-subtle mt-0.5">
                     {formatDate(tx.created_at)}
                     {tx.note && ` · ${tx.note}`}

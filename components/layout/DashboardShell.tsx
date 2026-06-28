@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSession } from 'next-auth/react'
 import Sidebar from './Sidebar'
 import Header from './Header'
 
@@ -10,6 +11,18 @@ interface DashboardShellProps {
 
 export default function DashboardShell({ children }: DashboardShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { update } = useSession()
+
+  // Rafraîchit le solde SMS depuis la DB dès que l'utilisateur revient sur l'onglet
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        update({ refreshSolde: true })
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [update])
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
