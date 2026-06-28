@@ -34,6 +34,8 @@ interface Transaction {
   montant_fcfa: number
   sms_credites: number
   statut: string
+  type?: string
+  note?: string | null
   created_at: string
 }
 
@@ -308,10 +310,13 @@ export default function RechargePage() {
               >
                 <div>
                   <p className="text-sm font-medium text-foreground">
-                    {formatFCFA(tx.montant_fcfa)}
+                    {tx.type === 'MANUELLE'
+                      ? <span className="text-secondary">Crédit manuel</span>
+                      : formatFCFA(tx.montant_fcfa)}
                   </p>
                   <p className="text-xs text-foreground-subtle mt-0.5">
                     {formatDate(tx.created_at)}
+                    {tx.note && ` · ${tx.note}`}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">

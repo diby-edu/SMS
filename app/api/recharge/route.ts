@@ -134,6 +134,8 @@ export async function GET(_req: NextRequest) {
       montant_fcfa: true,
       sms_credites: true,
       statut: true,
+      type: true,
+      note: true,
       created_at: true,
     },
     orderBy: { created_at: 'desc' },

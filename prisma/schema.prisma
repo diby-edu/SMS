@@ -47,6 +47,11 @@ enum TransactionStatus {
   FAILED   // Paiement échoué ou annulé
 }
 
+enum TransactionType {
+  AUTOMATIQUE  // Via PayDunya
+  MANUELLE     // Crédit admin
+}
+
 enum OtpStatus {
   PENDING   // Code envoyé, pas encore vérifié
   VERIFIED  // Code vérifié avec succès
@@ -175,9 +180,11 @@ model Campaign {
 model Transaction {
   id             String            @id @default(cuid())
   user_id        String
-  montant_fcfa   Int               // Montant payé en FCFA
+  montant_fcfa   Int               // Montant payé en FCFA (0 pour crédit manuel)
   sms_credites   Int               // Nombre de SMS crédités
   statut         TransactionStatus @default(PENDING)
+  type           TransactionType   @default(AUTOMATIQUE)
+  note           String?           // Note admin pour crédit manuel
   paydunya_token String?           // Token de la facture PayDunya
   paydunya_data  Json?             // Données brutes de l'IPN PayDunya
   created_at     DateTime          @default(now())
