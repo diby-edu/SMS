@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   const senders = await prisma.sender.findMany({
     where: { statut: statut as 'PENDING' | 'APPROVED' | 'REJECTED' },
     include: {
-      user: { select: { nom: true, prenom: true, email: true, telephone: true, pays: true } },
+      user: { select: { nom: true, prenom: true, email: true, phone: true, pays: true } },
     },
     orderBy: { created_at: 'asc' },
   })
