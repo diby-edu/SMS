@@ -116,6 +116,17 @@ export async function GET(_req: NextRequest) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
   }
 
+  // Expirer automatiquement les transactions PENDING de plus de 30 minutes
+  const expiryThreshold = new Date(Date.now() - 30 * 60 * 1000)
+  await prisma.transaction.updateMany({
+    where: {
+      user_id: session.user.id,
+      statut: 'PENDING',
+      created_at: { lt: expiryThreshold },
+    },
+    data: { statut: 'FAILED' },
+  })
+
   const transactions = await prisma.transaction.findMany({
     where: { user_id: session.user.id },
     select: {

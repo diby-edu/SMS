@@ -72,7 +72,8 @@ const STATUT_CONFIG = {
 }
 
 const TABS = [
-  { value: 'PENDING',   label: 'En attente',          icon: Clock },
+  { value: 'ALL',       label: 'Tous',                 icon: Tag },
+  { value: 'PENDING',   label: 'En attente',           icon: Clock },
   { value: 'SUBMITTED', label: 'En validation',        icon: Send },
   { value: 'APPROVED',  label: 'Actifs',               icon: CheckCircle2 },
   { value: 'REJECTED',  label: 'Refusés',              icon: XCircle },
@@ -86,7 +87,7 @@ const TABS = [
 export default function SendersPage() {
   const [senders, setSenders] = useState<Sender[]>([])
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<Sender['statut']>('PENDING')
+  const [tab, setTab] = useState<Sender['statut'] | 'ALL'>('ALL')
   const [showForm, setShowForm] = useState(false)
   const [creating, setCreating] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -178,14 +179,14 @@ export default function SendersPage() {
     }
   }
 
-  const filteredSenders = senders.filter((s) => s.statut === tab)
+  const filteredSenders = tab === 'ALL' ? senders : senders.filter((s) => s.statut === tab)
 
   // ============================================================
   // RENDU
   // ============================================================
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       {/* ---- En-tête ---- */}
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -413,7 +414,7 @@ export default function SendersPage() {
       {/* ---- Onglets ---- */}
       <div className="flex flex-wrap gap-1 bg-surface border border-border rounded-xl p-1 w-fit">
         {TABS.map(({ value, label, icon: Icon }) => {
-          const count = senders.filter((s) => s.statut === value).length
+          const count = value === 'ALL' ? senders.length : senders.filter((s) => s.statut === value).length
           return (
             <button
               key={value}
@@ -445,9 +446,9 @@ export default function SendersPage() {
         ) : filteredSenders.length === 0 ? (
           <div className="py-16 text-center">
             <Tag className="w-10 h-10 text-foreground-subtle mx-auto mb-3" />
-            {tab === 'PENDING' && (
+            {(tab === 'ALL' || tab === 'PENDING') && (
               <>
-                <p className="text-sm text-foreground-muted">Aucun sender en attente</p>
+                <p className="text-sm text-foreground-muted">Aucun sender</p>
                 <p className="text-xs text-foreground-subtle mt-1">Créez votre premier sender pour personnaliser vos envois</p>
                 <Button size="sm" leftIcon={<Plus className="w-3.5 h-3.5" />} className="mt-4" onClick={() => setShowForm(true)}>
                   Créer un sender

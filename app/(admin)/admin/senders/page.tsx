@@ -53,10 +53,10 @@ export default function AdminSendersPage() {
   const handleExport = useCallback(async () => {
     setExporting(true)
     try {
-      const res = await fetch(`/api/admin/senders/export-all?statut=PENDING`)
+      const res = await fetch(`/api/admin/senders/export-all`)
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        toast.error(data.error || 'Aucun sender PENDING à exporter')
+        toast.error(data.error || 'Aucun sender soumis à exporter')
         return
       }
       const blob = await res.blob()
@@ -119,7 +119,7 @@ export default function AdminSendersPage() {
         <button
           onClick={handleExport}
           disabled={exporting}
-          title="Exporter tous les senders en attente (format LeTexto)"
+          title="Exporter tous les senders soumis à LeTexto (justification)"
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-colors shrink-0 disabled:opacity-50"
         >
           {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}

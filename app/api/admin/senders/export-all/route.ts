@@ -6,7 +6,7 @@ import * as XLSX from 'xlsx'
 
 /**
  * GET /api/admin/senders/export-all
- * Export tous les senders PENDING en un seul fichier XLSX format LeTexto
+ * Export tous les senders SUBMITTED (soumis à LeTexto) en un seul fichier XLSX format LeTexto
  */
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -14,11 +14,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
-  const { searchParams } = new URL(req.url)
-  const statut = searchParams.get('statut') || 'PENDING'
-
   const senders = await prisma.sender.findMany({
-    where: { statut: statut as 'PENDING' | 'APPROVED' | 'REJECTED' },
+    where: { statut: 'SUBMITTED' },
     include: {
       user: { select: { nom: true, prenom: true, email: true, phone: true, pays: true } },
     },
