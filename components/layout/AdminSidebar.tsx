@@ -13,6 +13,7 @@ import {
   LogOut,
   X,
   Shield,
+  Key,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -21,6 +22,7 @@ const NAV_ITEMS = [
   { href: '/admin/clients', label: 'Clients', icon: Users, exact: false },
   { href: '/admin/senders', label: 'Validation Senders', icon: Tag, exact: false },
   { href: '/admin/transactions', label: 'Transactions', icon: CreditCard, exact: false },
+  { href: '/admin/apikeys', label: 'Clés API', icon: Key, exact: false },
   { href: '/admin/config', label: 'Configuration', icon: Settings, exact: false },
 ]
 

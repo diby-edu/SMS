@@ -368,16 +368,9 @@ export default function ContactsPage() {
             variant="secondary"
             size="sm"
             leftIcon={<Upload className="w-3.5 h-3.5" />}
-            onClick={() => { setShowImport((v) => !v); setShowAddForm(false) }}
+            onClick={() => setShowImport((v) => !v)}
           >
             Importer
-          </Button>
-          <Button
-            size="sm"
-            leftIcon={<Plus className="w-3.5 h-3.5" />}
-            onClick={() => { setShowAddForm((v) => !v); setShowImport(false) }}
-          >
-            Ajouter
           </Button>
         </div>
       </div>

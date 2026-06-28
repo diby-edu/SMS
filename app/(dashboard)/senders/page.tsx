@@ -64,6 +64,7 @@ const STATUT_CONFIG = {
 export default function SendersPage() {
   const [senders, setSenders] = useState<Sender[]>([])
   const [loading, setLoading] = useState(true)
+  const [tab, setTab] = useState<'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING')
   const [showForm, setShowForm] = useState(false)
   const [creating, setCreating] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -190,8 +191,8 @@ export default function SendersPage() {
         <p className="text-xs text-foreground-muted leading-relaxed">
           Un <strong className="text-foreground">Sender ID</strong> est le nom affiché à la place
           du numéro sur les SMS reçus par vos contacts (ex :{' '}
-          <span className="font-mono text-primary">MonBusiness</span>). Maximum 11 caractères.
-          Le sender est enregistré automatiquement après soumission.
+          <span className="font-mono text-primary">MonBusiness</span>). Maximum 11 caractères.{' '}
+          Chaque demande est soumise à <strong className="text-foreground">validation par notre équipe</strong> avant activation.
         </p>
       </div>
 
@@ -378,31 +379,60 @@ export default function SendersPage() {
         </div>
       )}
 
+      {/* ---- Onglets ---- */}
+      <div className="flex gap-1 bg-surface border border-border rounded-xl p-1 w-fit">
+        {([
+          { value: 'PENDING', label: 'En attente', icon: Clock },
+          { value: 'APPROVED', label: 'Actifs', icon: CheckCircle2 },
+          { value: 'REJECTED', label: 'Désactivés', icon: XCircle },
+        ] as const).map(({ value, label, icon: Icon }) => (
+          <button
+            key={value}
+            onClick={() => setTab(value)}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all',
+              tab === value ? 'bg-primary/10 text-primary' : 'text-foreground-muted hover:text-foreground'
+            )}
+          >
+            <Icon className="w-3.5 h-3.5" />
+            {label}
+            {(() => {
+              const n = senders.filter(s => s.statut === value).length
+              return n > 0 ? (
+                <span className={cn(
+                  'text-xs rounded-full px-1.5 py-0.5 font-bold',
+                  tab === value ? 'bg-primary text-background' : 'bg-border text-foreground-muted'
+                )}>{n}</span>
+              ) : null
+            })()}
+          </button>
+        ))}
+      </div>
+
       {/* ---- Liste des senders ---- */}
       <div className="bg-surface border border-border rounded-2xl overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="w-6 h-6 text-primary animate-spin" />
           </div>
-        ) : senders.length === 0 ? (
+        ) : senders.filter(s => s.statut === tab).length === 0 ? (
           <div className="py-16 text-center">
             <Tag className="w-10 h-10 text-foreground-subtle mx-auto mb-3" />
-            <p className="text-sm text-foreground-muted">Aucun sender créé</p>
-            <p className="text-xs text-foreground-subtle mt-1">
-              Créez un sender pour personnaliser vos envois SMS
-            </p>
-            <Button
-              size="sm"
-              leftIcon={<Plus className="w-3.5 h-3.5" />}
-              className="mt-4"
-              onClick={() => setShowForm(true)}
-            >
-              Créer un sender
-            </Button>
+            {tab === 'PENDING' && (
+              <>
+                <p className="text-sm text-foreground-muted">Aucun sender en attente</p>
+                <p className="text-xs text-foreground-subtle mt-1">Créez votre premier sender pour personnaliser vos envois</p>
+                <Button size="sm" leftIcon={<Plus className="w-3.5 h-3.5" />} className="mt-4" onClick={() => setShowForm(true)}>
+                  Créer un sender
+                </Button>
+              </>
+            )}
+            {tab === 'APPROVED' && <p className="text-sm text-foreground-muted">Aucun sender actif</p>}
+            {tab === 'REJECTED' && <p className="text-sm text-foreground-muted">Aucun sender désactivé</p>}
           </div>
         ) : (
           <div className="divide-y divide-border">
-            {senders.map((sender) => {
+            {senders.filter(s => s.statut === tab).map((sender) => {
               const config = STATUT_CONFIG[sender.statut]
               const Icon = config.icon
 

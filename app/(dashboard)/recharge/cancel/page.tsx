@@ -1,11 +1,29 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useEffect, useRef } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { XCircle } from 'lucide-react'
 import Button from '@/components/ui/Button'
 
 export default function RechargeCancelPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const called = useRef(false)
+
+  useEffect(() => {
+    if (called.current) return
+    called.current = true
+
+    // PayDunya ajoute ?token=... à l'URL de cancel
+    const token = searchParams.get('token')
+    if (token) {
+      fetch('/api/recharge/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      }).catch(() => {})
+    }
+  }, [searchParams])
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center p-6">

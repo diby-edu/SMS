@@ -73,5 +73,8 @@ export async function POST(req: NextRequest) {
     },
   })
 
-  return NextResponse.json({ key: newKey }, { status: 201 })
+  // Ajouter _count pour que le composant React ne crashe pas
+  return NextResponse.json({
+    key: { ...newKey, _count: { otpCodes: 0 } },
+  }, { status: 201 })
 }
