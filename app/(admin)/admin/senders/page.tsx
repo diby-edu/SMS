@@ -35,7 +35,8 @@ const TYPE_LABELS: Record<string, string> = {
 }
 
 const TABS = [
-  { value: 'PENDING',   label: 'En attente',       icon: Clock },
+  { value: 'ALL',       label: 'Tous',              icon: Tag },
+  { value: 'PENDING',   label: 'En attente',        icon: Clock },
   { value: 'SUBMITTED', label: 'Soumis à LeTexto',  icon: Send },
   { value: 'APPROVED',  label: 'Actifs',            icon: CheckCircle2 },
   { value: 'REJECTED',  label: 'Refusés',           icon: XCircle },
@@ -43,7 +44,7 @@ const TABS = [
 ]
 
 export default function AdminSendersPage() {
-  const [tab, setTab] = useState('PENDING')
+  const [tab, setTab] = useState('ALL')
   const [senders, setSenders] = useState<SenderAdmin[]>([])
   const [loading, setLoading] = useState(true)
   const [processingId, setProcessingId] = useState<string | null>(null)
@@ -76,7 +77,7 @@ export default function AdminSendersPage() {
 
   useEffect(() => {
     setLoading(true)
-    fetch(`/api/admin/senders?statut=${tab}`)
+    fetch(tab === 'ALL' ? '/api/admin/senders' : `/api/admin/senders?statut=${tab}`)
       .then((r) => r.json())
       .then((d) => setSenders(d.senders || []))
       .finally(() => setLoading(false))

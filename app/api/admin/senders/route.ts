@@ -10,10 +10,10 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url)
-  const statutFilter = searchParams.get('statut') || 'PENDING'
+  const statutFilter = searchParams.get('statut')
 
   const senders = await prisma.sender.findMany({
-    where: { statut: statutFilter as 'PENDING' | 'APPROVED' | 'REJECTED' },
+    where: statutFilter ? { statut: statutFilter as 'PENDING' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'DISABLED' } : undefined,
     include: {
       user: { select: { id: true, nom: true, prenom: true, email: true, pays: true } },
     },
