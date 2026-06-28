@@ -126,15 +126,15 @@ export async function createPayDunyaInvoice(
     throw new Error(`PayDunya error: ${response.data.response_text}`)
   }
 
-  // Certains comptes PayDunya ne retournent pas invoice_url directement
-  // On construit l'URL à partir du token si absent
-  const token = response.data.token
-  if (!response.data.invoice_url && token) {
-    const baseCheckout = mode === 'test'
-      ? 'https://app.paydunya.com/sandbox-checkout-invoice/confirm'
-      : 'https://app.paydunya.com/checkout-invoice/confirm'
-    console.log('[PayDunya] invoice_url absent, fallback construit:', `${baseCheckout}/${token}`)
-    response.data.invoice_url = `${baseCheckout}/${token}`
+  // PayDunya retourne l'URL de paiement dans response_text (nouveau format payment.paydunya.com)
+  // Si invoice_url est absent, on utilise response_text s'il contient une URL
+  if (!response.data.invoice_url) {
+    if (response.data.response_text?.startsWith('http')) {
+      response.data.invoice_url = response.data.response_text
+      console.log('[PayDunya] invoice_url extrait de response_text:', response.data.invoice_url)
+    } else {
+      console.log('[PayDunya] invoice_url absent et response_text non-URL:', response.data.response_text)
+    }
   } else {
     console.log('[PayDunya] invoice_url retourné par PayDunya:', response.data.invoice_url)
   }
