@@ -110,10 +110,17 @@ export async function createPayDunyaInvoice(
     },
   }
 
+  // Log de diagnostic (visible dans pm2 logs)
+  console.log('[PayDunya] Mode:', mode)
+  console.log('[PayDunya] API URL:', API_URL)
+  console.log('[PayDunya] MASTER_KEY prefix:', (process.env.PAYDUNYA_MASTER_KEY || '').slice(0, 8) + '...')
+
   const response = await paydunyaClient.post<PayDunyaInvoiceResponse>(
     '/checkout-invoice/create',
     payload
   )
+
+  console.log('[PayDunya] Response:', JSON.stringify(response.data))
 
   if (response.data.response_code !== '00') {
     throw new Error(`PayDunya error: ${response.data.response_text}`)
@@ -126,7 +133,10 @@ export async function createPayDunyaInvoice(
     const baseCheckout = mode === 'test'
       ? 'https://app.paydunya.com/sandbox-checkout-invoice/confirm'
       : 'https://app.paydunya.com/checkout-invoice/confirm'
+    console.log('[PayDunya] invoice_url absent, fallback construit:', `${baseCheckout}/${token}`)
     response.data.invoice_url = `${baseCheckout}/${token}`
+  } else {
+    console.log('[PayDunya] invoice_url retourné par PayDunya:', response.data.invoice_url)
   }
 
   return response.data
