@@ -335,7 +335,7 @@ export default function SMSPage() {
   // ============================================================
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
+    <div className={cn('mx-auto space-y-6 animate-fade-in', step === 1 ? 'max-w-2xl' : 'max-w-4xl')}>
       {/* ---- En-tête ---- */}
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -738,35 +738,38 @@ export default function SMSPage() {
             <div className="flex flex-col sm:flex-row gap-0">
 
               {/* ---- Phone mockup ---- */}
-              <div className="sm:w-56 shrink-0 flex items-center justify-center bg-background/60 border-b sm:border-b-0 sm:border-r border-border py-8 px-6">
-                <div className="relative w-40">
+              <div className="sm:w-72 shrink-0 flex items-center justify-center bg-background/60 border-b sm:border-b-0 sm:border-r border-border py-10 px-8">
+                <div className="relative w-56">
                   {/* Phone shell */}
-                  <div className="relative bg-[#1a1a2e] rounded-[2rem] border-4 border-[#2a2a4a] shadow-2xl pt-7 pb-5 px-3">
+                  <div className="relative bg-[#1a1a2e] rounded-[2.5rem] border-[5px] border-[#2a2a4a] shadow-2xl pt-9 pb-6 px-4">
                     {/* Notch */}
-                    <div className="absolute top-2 left-1/2 -translate-x-1/2 w-14 h-1.5 bg-[#2a2a4a] rounded-full" />
+                    <div className="absolute top-3 left-1/2 -translate-x-1/2 w-16 h-2 bg-[#2a2a4a] rounded-full" />
                     {/* Screen */}
-                    <div className="bg-[#f0f0f5] rounded-xl overflow-hidden min-h-[180px] flex flex-col">
+                    <div className="bg-[#f0f0f5] rounded-2xl overflow-hidden min-h-[240px] flex flex-col">
                       {/* SMS header */}
-                      <div className="bg-[#e8e8ef] px-3 py-2 flex items-center gap-2 border-b border-[#d8d8e8]">
-                        <div className="w-6 h-6 rounded-full bg-primary/80 flex items-center justify-center shrink-0">
-                          <span className="text-[8px] font-bold text-white">{senderNom.charAt(0).toUpperCase()}</span>
+                      <div className="bg-[#e8e8ef] px-4 py-2.5 flex items-center gap-2.5 border-b border-[#d8d8e8]">
+                        <div className="w-8 h-8 rounded-full bg-primary/80 flex items-center justify-center shrink-0">
+                          <span className="text-[11px] font-bold text-white">{senderNom.charAt(0).toUpperCase()}</span>
                         </div>
-                        <span className="text-[9px] font-semibold text-[#333] truncate">{senderNom}</span>
+                        <div>
+                          <p className="text-[11px] font-semibold text-[#222] leading-none">{senderNom}</p>
+                          <p className="text-[9px] text-[#888] mt-0.5">SMS</p>
+                        </div>
                       </div>
                       {/* Message bubble */}
-                      <div className="flex-1 p-2.5 flex flex-col gap-1.5">
-                        <div className="bg-[#e2fce7] rounded-xl rounded-tl-none px-2.5 py-2 max-w-[90%] shadow-sm">
-                          <p className="text-[9px] leading-[1.4] text-[#1a1a1a] break-words whitespace-pre-wrap">
-                            {content.length > 140 ? content.slice(0, 137) + '…' : content || '(message vide)'}
+                      <div className="flex-1 p-3 flex flex-col gap-2">
+                        <div className="bg-[#e2fce7] rounded-2xl rounded-tl-none px-3 py-2.5 max-w-[92%] shadow-sm">
+                          <p className="text-[11px] leading-[1.5] text-[#1a1a1a] break-words whitespace-pre-wrap">
+                            {content.length > 160 ? content.slice(0, 157) + '…' : content || '(message vide)'}
                           </p>
                         </div>
                         <div className="flex justify-end">
-                          <span className="text-[7px] text-[#999]">Maintenant</span>
+                          <span className="text-[9px] text-[#aaa]">Maintenant ✓✓</span>
                         </div>
                       </div>
                     </div>
                     {/* Home bar */}
-                    <div className="mt-3 mx-auto w-10 h-1 bg-[#2a2a4a] rounded-full" />
+                    <div className="mt-4 mx-auto w-14 h-1.5 bg-[#2a2a4a] rounded-full" />
                   </div>
                 </div>
               </div>
