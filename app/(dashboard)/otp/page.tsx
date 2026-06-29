@@ -409,15 +409,15 @@ export default function OtpPage() {
                   autoFocus
                 />
               </div>
-              {otpSenders.length > 0 && (
+              {otpSenders.length > 0 ? (
                 <div>
                   <label className="text-sm font-medium text-foreground block mb-1.5">
-                    Sender OTP par défaut
-                    <span className="text-foreground-subtle font-normal ml-1">(optionnel)</span>
+                    Sender OTP <span className="text-danger">*</span>
                   </label>
                   <select
                     value={newKeyDefaultSender}
                     onChange={(e) => setNewKeyDefaultSender(e.target.value)}
+                    required
                     className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-primary transition-colors"
                   >
                     <option value="">-- Sélectionner un sender OTP --</option>
@@ -426,15 +426,23 @@ export default function OtpPage() {
                     ))}
                   </select>
                   <p className="text-xs text-foreground-subtle mt-1">
-                    Ce sender sera utilisé automatiquement si vous ne précisez pas le champ <code className="text-primary">sender</code> dans vos appels API.
+                    Ce sender sera affiché à la place du numéro sur les SMS OTP reçus par vos utilisateurs.
                   </p>
+                </div>
+              ) : (
+                <div className="bg-warning/8 border border-warning/20 rounded-lg px-4 py-3 text-xs text-warning">
+                  Vous n&apos;avez aucun sender OTP approuvé.{' '}
+                  <a href="/senders" className="font-semibold underline hover:text-warning/80">
+                    Créez et faites approuver un sender OTP
+                  </a>{' '}
+                  avant de créer une clé API.
                 </div>
               )}
               {error && <p className="text-xs text-danger">{error}</p>}
               <div className="flex gap-2">
                 <button
                   type="submit"
-                  disabled={creating || !newKeyName.trim()}
+                  disabled={creating || !newKeyName.trim() || (otpSenders.length > 0 && !newKeyDefaultSender) || otpSenders.length === 0}
                   className="flex-1 py-2.5 bg-primary text-[#0A0A0F] rounded-lg text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors"
                 >
                   {creating ? 'Création...' : 'Créer la clé'}
