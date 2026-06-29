@@ -96,18 +96,32 @@ function buildSmsMessage(payload: ChariowPayload): string {
       else msg += ` Merci pour votre achat !`
       return msg
     }
-    case 'abandoned.sale':
-      return `Bonjour ${prenom}, vous avez laisse ${produit}${montant ? ` (${montant})` : ''} dans votre panier. Finalisez votre commande${urlAchat ? ` : ${urlAchat}` : '.'}`
-    case 'failed.sale':
-      return `Bonjour ${prenom}, votre paiement${montant ? ` de ${montant}` : ''} pour ${produit} n'a pas pu etre traite. Reessayez${urlProduit ? ` : ${urlProduit}` : '.'}`
-    case 'license.activated':
-      return `Bonjour ${prenom}, votre licence${cle ? ` ${cle}` : ''} pour ${produit} est maintenant active.`
+    case 'abandoned.sale': {
+      let msg = `Bonjour ${prenom}, vous avez laisse quelque chose derriere vous : ${produit}.`
+      if (montant) msg += ` Total : ${montant}.`
+      msg += urlAchat ? ` Reprenez votre commande : ${urlAchat}` : (payload.store?.url ? ` Reprenez votre commande : ${payload.store.url}` : '')
+      return msg
+    }
+    case 'failed.sale': {
+      let msg = `Bonjour ${prenom}, votre paiement${montant ? ` de ${montant}` : ''} pour ${produit} n'a pas pu etre traite.`
+      msg += urlProduit ? ` Reessayez votre achat : ${urlProduit}` : ''
+      return msg
+    }
+    case 'license.activated': {
+      let msg = `Bonjour ${prenom}, votre licence pour ${produit} est maintenant active.`
+      if (cle) msg += ` Cle : ${cle}.`
+      if (urlAchat) msg += ` Acces : ${urlAchat}`
+      return msg
+    }
     case 'license.expired':
-      return `Bonjour ${prenom}, votre licence pour ${produit} a expire.${boutique ? ` Renouvelez sur ${boutique}.` : ''}`
-    case 'license.issued':
-      return `Bonjour ${prenom}, votre licence${cle ? ` ${cle}` : ''} pour ${produit} a ete emise.`
+      return `Bonjour ${prenom}, votre licence pour ${produit} a expire.${payload.store?.url ? ` Renouvelez sur : ${payload.store.url}` : ''}`
+    case 'license.issued': {
+      let msg = `Bonjour ${prenom}, votre licence pour ${produit} a ete emise.`
+      if (cle) msg += ` Cle : ${cle}.`
+      return msg
+    }
     case 'license.revoked':
-      return `Bonjour ${prenom}, votre licence pour ${produit} a ete revoquee. Contactez le support.`
+      return `Bonjour ${prenom}, votre licence pour ${produit} a ete revoquee. Contactez le support${payload.store?.url ? ` : ${payload.store.url}` : '.'}`
     case 'affiliate.joined':
       return `Bonjour ${prenom}, bienvenue dans le programme d'affiliation${boutique ? ` de ${boutique}` : ''} !`
     default:
