@@ -219,6 +219,17 @@ export default function AdminSendersPage() {
                           Refuser
                         </Button>
                         <Button
+                          variant="secondary"
+                          size="sm"
+                          loading={processingId === sender.id}
+                          onClick={() => handleAction(sender.id, 'APPROVED')}
+                          className="text-secondary hover:bg-secondary/10"
+                          leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
+                          title="Approuver sans soumettre à LeTexto (sender déjà validé)"
+                        >
+                          Approuver directement
+                        </Button>
+                        <Button
                           size="sm"
                           loading={processingId === sender.id}
                           onClick={() => handleAction(sender.id, 'SUBMITTED')}
