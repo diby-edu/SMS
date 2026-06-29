@@ -198,7 +198,8 @@ export async function POST(
           where: { id: messageRecord.id },
           data: { statut: 'FAILED' },
         })
-        console.error(`[Chariow] Échec envoi SMS: ${err.message}`)
+        const detail = err.response?.data ? JSON.stringify(err.response.data) : err.message
+        console.error(`[Chariow] Échec envoi SMS vers ${phoneClean} (sender: ${config.sender}, event: ${event}): ${detail}`)
       })
 
     return NextResponse.json({ ok: true })
