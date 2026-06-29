@@ -35,6 +35,8 @@ type ChariowPayload = {
   }
   sale?: {
     amount?: { formatted?: string }
+    custom_fields?: Record<string, string> | null
+    custom_metadata?: Record<string, string> | null
   }
   license?: {
     key?: string
@@ -82,9 +84,18 @@ function buildSmsMessage(payload: ChariowPayload): string {
   const urlAchat = payload.checkout?.url || payload.product?.url || payload.store?.url || ''
   const urlProduit = payload.product?.url || payload.store?.url || ''
 
+  // Champs personnalisés (mot de passe fichier, etc.)
+  const customFields = payload.sale?.custom_fields || payload.sale?.custom_metadata || {}
+  const motDePasse = customFields?.password || customFields?.mot_de_passe || customFields?.file_password || null
+
   switch (event) {
-    case 'successful.sale':
-      return `Bonjour ${prenom}, votre paiement${montant ? ` de ${montant}` : ''} pour ${produit} a bien ete recu. Merci pour votre achat !`
+    case 'successful.sale': {
+      let msg = `Bonjour ${prenom}, votre paiement${montant ? ` de ${montant}` : ''} pour ${produit} a bien ete recu.`
+      if (motDePasse) msg += ` Mot de passe : ${motDePasse}.`
+      if (urlAchat) msg += ` Acces : ${urlAchat}`
+      else msg += ` Merci pour votre achat !`
+      return msg
+    }
     case 'abandoned.sale':
       return `Bonjour ${prenom}, vous avez laisse ${produit}${montant ? ` (${montant})` : ''} dans votre panier. Finalisez votre commande${urlAchat ? ` : ${urlAchat}` : '.'}`
     case 'failed.sale':
@@ -128,6 +139,7 @@ export async function POST(
 
     const payload: ChariowPayload = await req.json()
     const event = payload.event
+    console.log(`[Chariow] Payload reçu:`, JSON.stringify(payload, null, 2))
 
     // Vérifier que l'événement est connu
     if (!event || !CHARIOW_EVENTS[event]) {
