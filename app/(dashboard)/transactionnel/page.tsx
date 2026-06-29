@@ -19,6 +19,10 @@ import {
   AlertCircle,
   Globe,
   Loader2,
+  ShoppingCart,
+  Link,
+  ToggleLeft,
+  ToggleRight,
 } from 'lucide-react'
 
 // ============================================================
@@ -41,6 +45,26 @@ interface TransactionalSender {
   id: string
   nom: string
 }
+
+interface ChariowConfig {
+  id: string
+  sender: string
+  token: string
+  events_disabled: string[]
+  is_active: boolean
+  created_at: string
+}
+
+const CHARIOW_EVENTS = [
+  { value: 'successful.sale', label: 'Vente réussie' },
+  { value: 'abandoned.sale', label: 'Vente abandonnée' },
+  { value: 'failed.sale', label: 'Vente échouée' },
+  { value: 'license.activated', label: 'Licence activée' },
+  { value: 'license.expired', label: 'Licence expirée' },
+  { value: 'license.issued', label: 'Licence émise' },
+  { value: 'license.revoked', label: 'Licence révoquée' },
+  { value: 'affiliate.joined', label: 'Affilié a rejoint' },
+]
 
 interface Stats {
   total: number
@@ -268,6 +292,132 @@ function ApiKeyCard({
 }
 
 // ============================================================
+// COMPOSANT CHARIOW CONFIG CARD
+// ============================================================
+
+function ChariowCard({
+  config,
+  onDelete,
+  onToggleEvent,
+}: {
+  config: ChariowConfig
+  onDelete: (id: string) => void
+  onToggleEvent: (id: string, events_disabled: string[]) => void
+}) {
+  const [copied, setCopied] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [togglingEvent, setTogglingEvent] = useState<string | null>(null)
+
+  const webhookUrl = `${typeof window !== 'undefined' ? window.location.origin : 'https://sms.numerik360.com'}/api/webhooks/chariow/${config.token}`
+
+  const copyUrl = async () => {
+    await navigator.clipboard.writeText(webhookUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleDelete = async () => {
+    if (!confirm('Supprimer cette intégration Chariow ? L\'URL webhook sera désactivée.')) return
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/chariow/config/${config.id}`, { method: 'DELETE' })
+      if (res.ok) onDelete(config.id)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const toggleEvent = async (eventValue: string) => {
+    setTogglingEvent(eventValue)
+    const isDisabled = config.events_disabled.includes(eventValue)
+    const newDisabled = isDisabled
+      ? config.events_disabled.filter((e) => e !== eventValue)
+      : [...config.events_disabled, eventValue]
+    try {
+      const res = await fetch(`/api/chariow/config/${config.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ events_disabled: newDisabled }),
+      })
+      if (res.ok) onToggleEvent(config.id, newDisabled)
+    } finally {
+      setTogglingEvent(null)
+    }
+  }
+
+  return (
+    <div className="bg-surface border border-border rounded-xl p-4 space-y-4">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-secondary/10 flex items-center justify-center shrink-0">
+            <ShoppingCart className="w-4 h-4 text-secondary" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-foreground">Sender : <span className="font-mono text-primary">{config.sender}</span></p>
+            <p className="text-xs text-foreground-muted">Créé le {new Date(config.created_at).toLocaleDateString('fr-FR')}</p>
+          </div>
+        </div>
+        <button
+          onClick={handleDelete}
+          disabled={deleting}
+          className="p-1.5 text-foreground-subtle hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
+          title="Supprimer"
+        >
+          {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+        </button>
+      </div>
+
+      {/* URL Webhook */}
+      <div>
+        <p className="text-xs font-medium text-foreground-subtle uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+          <Link className="w-3 h-3" />
+          URL à copier dans Chariow
+        </p>
+        <div className="flex items-center gap-2 bg-background rounded-lg px-3 py-2.5 border border-border">
+          <code className="text-xs text-secondary font-mono flex-1 truncate">{webhookUrl}</code>
+          <button onClick={copyUrl} className="text-foreground-subtle hover:text-primary transition-colors shrink-0">
+            {copied ? <Check className="w-3.5 h-3.5 text-secondary" /> : <Copy className="w-3.5 h-3.5" />}
+          </button>
+        </div>
+        <p className="text-xs text-foreground-subtle mt-1">Chariow → Automation → Pulses → Nouvelle URL de pulse</p>
+      </div>
+
+      {/* Événements */}
+      <div>
+        <p className="text-xs font-medium text-foreground-subtle uppercase tracking-wider mb-2">Événements actifs</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+          {CHARIOW_EVENTS.map(({ value, label }) => {
+            const isActive = !config.events_disabled.includes(value)
+            const isToggling = togglingEvent === value
+            return (
+              <button
+                key={value}
+                onClick={() => toggleEvent(value)}
+                disabled={!!togglingEvent}
+                className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-all ${
+                  isActive
+                    ? 'border-secondary/30 bg-secondary/5 text-foreground'
+                    : 'border-border bg-background text-foreground-subtle'
+                }`}
+              >
+                <span>{label}</span>
+                {isToggling
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin text-foreground-subtle" />
+                  : isActive
+                  ? <ToggleRight className="w-4 h-4 text-secondary shrink-0" />
+                  : <ToggleLeft className="w-4 h-4 text-foreground-subtle shrink-0" />
+                }
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ============================================================
 // PAGE PRINCIPALE
 // ============================================================
 
@@ -281,14 +431,22 @@ export default function TransactionnelPage() {
   const [creating, setCreating] = useState(false)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [error, setError] = useState('')
-  const [activeTab, setActiveTab] = useState<'keys' | 'docs'>('keys')
+  const [activeTab, setActiveTab] = useState<'keys' | 'chariow' | 'docs'>('keys')
+
+  // Chariow
+  const [chariowConfigs, setChariowConfigs] = useState<ChariowConfig[]>([])
+  const [chariowSender, setChariowSender] = useState('')
+  const [creatingChariow, setCreatingChariow] = useState(false)
+  const [showChariowForm, setShowChariowForm] = useState(false)
+  const [chariowError, setChariowError] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [keysRes, statsRes, sendersRes] = await Promise.all([
+    const [keysRes, statsRes, sendersRes, chariowRes] = await Promise.all([
       fetch('/api/otp/keys'),
       fetch('/api/transactionnel/stats'),
       fetch('/api/senders'),
+      fetch('/api/chariow/config'),
     ])
     if (keysRes.ok) setKeys((await keysRes.json()).keys)
     if (statsRes.ok) setStats(await statsRes.json())
@@ -301,6 +459,7 @@ export default function TransactionnelPage() {
         )
       )
     }
+    if (chariowRes.ok) setChariowConfigs((await chariowRes.json()).configs || [])
     setLoading(false)
   }, [])
 
@@ -335,6 +494,31 @@ export default function TransactionnelPage() {
   const updateKey = (id: string, patch: Partial<ApiKey>) =>
     setKeys((prev) => prev.map((k) => k.id === id ? { ...k, ...patch } : k))
 
+  const createChariow = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setChariowError('')
+    if (!chariowSender) return
+    setCreatingChariow(true)
+    try {
+      const res = await fetch('/api/chariow/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sender: chariowSender }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setChariowError(data.error || 'Erreur'); return }
+      setChariowConfigs((prev) => [data.config, ...prev])
+      setChariowSender('')
+      setShowChariowForm(false)
+    } finally {
+      setCreatingChariow(false)
+    }
+  }
+
+  const removeChariow = (id: string) => setChariowConfigs((prev) => prev.filter((c) => c.id !== id))
+  const updateChariowEvents = (id: string, events_disabled: string[]) =>
+    setChariowConfigs((prev) => prev.map((c) => c.id === id ? { ...c, events_disabled } : c))
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
       {/* ---- En-tête ---- */}
@@ -359,16 +543,20 @@ export default function TransactionnelPage() {
       )}
 
       {/* ---- Tabs ---- */}
-      <div className="flex gap-1 bg-surface border border-border rounded-xl p-1 w-fit">
-        {(['keys', 'docs'] as const).map((t) => (
+      <div className="flex gap-1 bg-surface border border-border rounded-xl p-1 w-fit flex-wrap">
+        {([
+          { value: 'keys', label: 'Mes clés API', icon: <Key className="w-3.5 h-3.5" /> },
+          { value: 'chariow', label: 'Chariow', icon: <ShoppingCart className="w-3.5 h-3.5" /> },
+          { value: 'docs', label: 'Documentation', icon: <Code2 className="w-3.5 h-3.5" /> },
+        ] as const).map(({ value, label, icon }) => (
           <button
-            key={t}
-            onClick={() => setActiveTab(t)}
+            key={value}
+            onClick={() => setActiveTab(value)}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
-              activeTab === t ? 'bg-secondary text-[#0A0A0F]' : 'text-foreground-muted hover:text-foreground'
+              activeTab === value ? 'bg-secondary text-[#0A0A0F]' : 'text-foreground-muted hover:text-foreground'
             }`}
           >
-            {t === 'keys' ? <><Key className="w-3.5 h-3.5" />Mes clés API</> : <><Code2 className="w-3.5 h-3.5" />Documentation</>}
+            {icon}{label}
           </button>
         ))}
       </div>
@@ -500,6 +688,114 @@ export default function TransactionnelPage() {
                   <a href="/senders" className="underline font-semibold">Gérer mes senders →</a>
                 </p>
               </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ---- Onglet : Chariow ---- */}
+      {activeTab === 'chariow' && (
+        <div className="space-y-4">
+          {/* Intro */}
+          <div className="bg-surface border border-border rounded-xl p-4 space-y-2">
+            <div className="flex items-center gap-2">
+              <ShoppingCart className="w-4 h-4 text-secondary" />
+              <h3 className="font-syne font-semibold text-sm text-foreground">Intégration Chariow</h3>
+            </div>
+            <p className="text-xs text-foreground-muted">
+              Recevez les pulses Chariow et envoyez automatiquement des SMS à vos clients.
+              Chaque configuration génère une URL unique à coller dans Chariow → Automation → Pulses.
+            </p>
+          </div>
+
+          {/* Avertissement si aucun sender */}
+          {transactionalSenders.length === 0 && (
+            <div className="flex items-start gap-3 bg-warning/8 border border-warning/20 rounded-xl px-4 py-3.5">
+              <AlertCircle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
+              <p className="text-xs text-warning">
+                Vous devez avoir un sender <strong>Transactionnel</strong> ou <strong>Promotionnel</strong> approuvé.{' '}
+                <a href="/senders" className="underline font-semibold">Gérer mes senders →</a>
+              </p>
+            </div>
+          )}
+
+          {/* Bouton créer */}
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-foreground-muted">{chariowConfigs.length} intégration(s)</p>
+            {!showChariowForm && transactionalSenders.length > 0 && (
+              <button
+                onClick={() => setShowChariowForm(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-secondary text-[#0A0A0F] rounded-lg text-sm font-semibold hover:bg-secondary/90 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Nouvelle intégration
+              </button>
+            )}
+          </div>
+
+          {/* Formulaire création */}
+          {showChariowForm && (
+            <form onSubmit={createChariow} className="bg-surface border border-secondary/30 rounded-xl p-4 space-y-3">
+              <div>
+                <label className="text-sm font-medium text-foreground block mb-1.5">
+                  Sender à utiliser <span className="text-danger">*</span>
+                </label>
+                <select
+                  value={chariowSender}
+                  onChange={(e) => setChariowSender(e.target.value)}
+                  required
+                  className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-secondary transition-colors"
+                >
+                  <option value="">-- Sélectionner un sender --</option>
+                  {transactionalSenders.map((s) => (
+                    <option key={s.id} value={s.nom}>{s.nom}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-foreground-subtle mt-1">
+                  Ce sender sera utilisé pour tous les SMS envoyés via cette intégration.
+                </p>
+              </div>
+              {chariowError && <p className="text-xs text-danger">{chariowError}</p>}
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={creatingChariow || !chariowSender}
+                  className="flex-1 py-2.5 bg-secondary text-[#0A0A0F] rounded-lg text-sm font-semibold hover:bg-secondary/90 disabled:opacity-50 transition-colors"
+                >
+                  {creatingChariow ? 'Création...' : 'Créer l\'intégration'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowChariowForm(false); setChariowError(''); setChariowSender('') }}
+                  className="px-4 py-2.5 border border-border rounded-lg text-sm text-foreground-muted hover:text-foreground transition-colors"
+                >
+                  Annuler
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Liste des configs */}
+          {loading ? (
+            <div className="bg-surface border border-border rounded-xl p-4 animate-pulse h-32" />
+          ) : chariowConfigs.length === 0 ? (
+            <div className="text-center py-12 border border-dashed border-border rounded-xl">
+              <ShoppingCart className="w-10 h-10 text-foreground-subtle mx-auto mb-3" />
+              <p className="text-foreground-muted text-sm">Aucune intégration Chariow</p>
+              <p className="text-foreground-subtle text-xs mt-1">
+                Créez une intégration pour envoyer des SMS automatiques depuis vos pulses Chariow
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {chariowConfigs.map((c) => (
+                <ChariowCard
+                  key={c.id}
+                  config={c}
+                  onDelete={removeChariow}
+                  onToggleEvent={updateChariowEvents}
+                />
+              ))}
             </div>
           )}
         </div>

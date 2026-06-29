@@ -54,5 +54,6 @@ export const config = {
     '/api/balance/:path*',
     '/api/admin/:path*',
     '/api/recharge/:path*',
+    '/api/chariow/:path*',
   ],
 }

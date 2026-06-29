@@ -77,13 +77,14 @@ model User {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  senders      Sender[]
-  contacts     Contact[]
-  contactLists ContactList[]
-  messages     Message[]
-  campaigns    Campaign[]
-  transactions Transaction[]
-  apiKeys      ApiKey[]
+  senders        Sender[]
+  contacts       Contact[]
+  contactLists   ContactList[]
+  messages       Message[]
+  campaigns      Campaign[]
+  transactions   Transaction[]
+  apiKeys        ApiKey[]
+  chariowConfigs ChariowConfig[]
 
   @@map("users")
 }
@@ -237,6 +238,24 @@ model OtpCode {
   @@index([api_key_id])
   @@index([phone])
   @@map("otp_codes")
+}
+
+// Intégration Chariow — webhook pulse → SMS automatique
+model ChariowConfig {
+  id               String   @id @default(cuid())
+  user_id          String
+  sender           String   // Nom du sender APPROVED à utiliser pour les SMS
+  token            String   @unique // Token secret pour l'URL webhook publique
+  events_disabled  String[] @default([]) // Événements désactivés (vide = tous actifs)
+  is_active        Boolean  @default(true)
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([token])
+  @@map("chariow_configs")
 }
 
 // Configuration globale de la plateforme (une seule ligne)
