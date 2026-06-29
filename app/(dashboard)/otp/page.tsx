@@ -16,6 +16,7 @@ import {
   XCircle,
   AlertCircle,
   Tag,
+  List,
 } from 'lucide-react'
 
 // ============================================================
@@ -44,6 +45,17 @@ interface Stats {
 interface OtpSender {
   id: string
   nom: string
+}
+
+interface OtpLog {
+  id: string
+  phone: string
+  statut: string
+  attempts: number
+  expires_at: string
+  verified_at: string | null
+  created_at: string
+  key_name: string
 }
 
 // ============================================================
@@ -251,7 +263,10 @@ export default function OtpPage() {
   const [creating, setCreating] = useState(false)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [error, setError] = useState('')
-  const [activeTab, setActiveTab] = useState<'keys' | 'docs'>('keys')
+  const [activeTab, setActiveTab] = useState<'keys' | 'logs' | 'docs'>('keys')
+  const [otpLogs, setOtpLogs] = useState<OtpLog[]>([])
+  const [otpLogsTotal, setOtpLogsTotal] = useState(0)
+  const [loadingLogs, setLoadingLogs] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -306,6 +321,21 @@ export default function OtpPage() {
   const updateKey = (id: string, default_otp_sender: string | null) =>
     setKeys((prev) => prev.map((k) => k.id === id ? { ...k, default_otp_sender } : k))
 
+  const loadLogs = useCallback(async () => {
+    setLoadingLogs(true)
+    const res = await fetch('/api/otp/logs?limit=50')
+    if (res.ok) {
+      const data = await res.json()
+      setOtpLogs(data.logs)
+      setOtpLogsTotal(data.total)
+    }
+    setLoadingLogs(false)
+  }, [])
+
+  useEffect(() => {
+    if (activeTab === 'logs') loadLogs()
+  }, [activeTab, loadLogs])
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
       {/* ---- En-tête ---- */}
@@ -352,27 +382,22 @@ export default function OtpPage() {
       )}
 
       {/* ---- Tabs ---- */}
-      <div className="flex gap-1 bg-surface border border-border rounded-xl p-1 w-fit">
-        <button
-          onClick={() => setActiveTab('keys')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            activeTab === 'keys'
-              ? 'bg-primary text-[#0A0A0F]'
-              : 'text-foreground-muted hover:text-foreground'
-          }`}
-        >
-          <span className="flex items-center gap-2"><Key className="w-3.5 h-3.5" />Mes clés API</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('docs')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            activeTab === 'docs'
-              ? 'bg-primary text-[#0A0A0F]'
-              : 'text-foreground-muted hover:text-foreground'
-          }`}
-        >
-          <span className="flex items-center gap-2"><Code2 className="w-3.5 h-3.5" />Documentation</span>
-        </button>
+      <div className="flex gap-1 bg-surface border border-border rounded-xl p-1 w-fit flex-wrap">
+        {([
+          { value: 'keys', label: 'Mes clés API', icon: <Key className="w-3.5 h-3.5" /> },
+          { value: 'logs', label: 'Logs', icon: <List className="w-3.5 h-3.5" /> },
+          { value: 'docs', label: 'Documentation', icon: <Code2 className="w-3.5 h-3.5" /> },
+        ] as const).map(({ value, label, icon }) => (
+          <button
+            key={value}
+            onClick={() => setActiveTab(value)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+              activeTab === value ? 'bg-primary text-[#0A0A0F]' : 'text-foreground-muted hover:text-foreground'
+            }`}
+          >
+            {icon}{label}
+          </button>
+        ))}
       </div>
 
       {/* ---- Onglet : Clés API ---- */}
@@ -481,6 +506,69 @@ export default function OtpPage() {
               {keys.map((k) => (
                 <ApiKeyRow key={k.id} apiKey={k} otpSenders={otpSenders} onDelete={removeKey} onUpdate={updateKey} />
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ---- Onglet : Logs ---- */}
+      {activeTab === 'logs' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-foreground-muted">{otpLogsTotal} code(s) OTP envoyé(s)</p>
+            <button onClick={loadLogs} className="text-xs text-primary hover:underline">Actualiser</button>
+          </div>
+          {loadingLogs ? (
+            <div className="space-y-2">
+              {[1,2,3].map(i => <div key={i} className="h-12 bg-surface border border-border rounded-lg animate-pulse" />)}
+            </div>
+          ) : otpLogs.length === 0 ? (
+            <div className="text-center py-12 border border-dashed border-border rounded-xl">
+              <List className="w-10 h-10 text-foreground-subtle mx-auto mb-3" />
+              <p className="text-foreground-muted text-sm">Aucun log OTP</p>
+              <p className="text-foreground-subtle text-xs mt-1">Les codes OTP envoyés apparaîtront ici</p>
+            </div>
+          ) : (
+            <div className="bg-surface border border-border rounded-xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-border bg-background">
+                      <th className="text-left px-4 py-3 text-foreground-subtle font-medium">Date</th>
+                      <th className="text-left px-4 py-3 text-foreground-subtle font-medium">Téléphone</th>
+                      <th className="text-left px-4 py-3 text-foreground-subtle font-medium">Statut</th>
+                      <th className="text-left px-4 py-3 text-foreground-subtle font-medium">Tentatives</th>
+                      <th className="text-left px-4 py-3 text-foreground-subtle font-medium">Clé API</th>
+                      <th className="text-left px-4 py-3 text-foreground-subtle font-medium">Vérifié à</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {otpLogs.map((log) => (
+                      <tr key={log.id} className="hover:bg-background/50 transition-colors">
+                        <td className="px-4 py-3 text-foreground-muted whitespace-nowrap">
+                          {new Date(log.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-foreground">{log.phone}</td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex px-2 py-0.5 rounded-full font-semibold text-xs ${
+                            log.statut === 'VERIFIED' ? 'bg-secondary/10 text-secondary' :
+                            log.statut === 'PENDING' ? 'bg-warning/10 text-warning' :
+                            log.statut === 'EXPIRED' ? 'bg-border text-foreground-subtle' :
+                            'bg-danger/10 text-danger'
+                          }`}>
+                            {log.statut === 'VERIFIED' ? 'Vérifié' : log.statut === 'PENDING' ? 'En attente' : log.statut === 'EXPIRED' ? 'Expiré' : 'Échoué'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-foreground-muted">{log.attempts} / 3</td>
+                        <td className="px-4 py-3 text-foreground-subtle">{log.key_name}</td>
+                        <td className="px-4 py-3 text-foreground-muted">
+                          {log.verified_at ? new Date(log.verified_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>

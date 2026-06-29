@@ -23,6 +23,7 @@ import {
   Link,
   ToggleLeft,
   ToggleRight,
+  List,
 } from 'lucide-react'
 
 // ============================================================
@@ -73,6 +74,17 @@ interface Stats {
   delivered: number
   failed: number
   tauxLivraison: number
+}
+
+interface TransLog {
+  id: string
+  sender: string
+  destinataire: string
+  contenu: string
+  statut: string
+  cost_sms: number
+  created_at: string
+  apiKey: { name: string } | null
 }
 
 // ============================================================
@@ -432,7 +444,10 @@ export default function TransactionnelPage() {
   const [creating, setCreating] = useState(false)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [error, setError] = useState('')
-  const [activeTab, setActiveTab] = useState<'keys' | 'chariow' | 'docs'>('keys')
+  const [activeTab, setActiveTab] = useState<'keys' | 'chariow' | 'logs' | 'docs'>('keys')
+  const [transLogs, setTransLogs] = useState<TransLog[]>([])
+  const [transLogsTotal, setTransLogsTotal] = useState(0)
+  const [loadingLogs, setLoadingLogs] = useState(false)
 
   // Chariow
   const [chariowConfigs, setChariowConfigs] = useState<ChariowConfig[]>([])
@@ -520,6 +535,21 @@ export default function TransactionnelPage() {
   const updateChariowEvents = (id: string, events_disabled: string[]) =>
     setChariowConfigs((prev) => prev.map((c) => c.id === id ? { ...c, events_disabled } : c))
 
+  const loadLogs = useCallback(async () => {
+    setLoadingLogs(true)
+    const res = await fetch('/api/transactionnel/logs?limit=50')
+    if (res.ok) {
+      const data = await res.json()
+      setTransLogs(data.logs)
+      setTransLogsTotal(data.total)
+    }
+    setLoadingLogs(false)
+  }, [])
+
+  useEffect(() => {
+    if (activeTab === 'logs') loadLogs()
+  }, [activeTab, loadLogs])
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
       {/* ---- En-tête ---- */}
@@ -548,6 +578,7 @@ export default function TransactionnelPage() {
         {([
           { value: 'keys', label: 'Mes clés API', icon: <Key className="w-3.5 h-3.5" /> },
           { value: 'chariow', label: 'Chariow', icon: <ShoppingCart className="w-3.5 h-3.5" /> },
+          { value: 'logs', label: 'Logs', icon: <List className="w-3.5 h-3.5" /> },
           { value: 'docs', label: 'Documentation', icon: <Code2 className="w-3.5 h-3.5" /> },
         ] as const).map(({ value, label, icon }) => (
           <button
@@ -799,6 +830,69 @@ export default function TransactionnelPage() {
                   onToggleEvent={updateChariowEvents}
                 />
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ---- Onglet : Logs ---- */}
+      {activeTab === 'logs' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-foreground-muted">{transLogsTotal} SMS envoyé(s) via API</p>
+            <button onClick={loadLogs} className="text-xs text-primary hover:underline">Actualiser</button>
+          </div>
+          {loadingLogs ? (
+            <div className="space-y-2">
+              {[1,2,3].map(i => <div key={i} className="h-12 bg-surface border border-border rounded-lg animate-pulse" />)}
+            </div>
+          ) : transLogs.length === 0 ? (
+            <div className="text-center py-12 border border-dashed border-border rounded-xl">
+              <List className="w-10 h-10 text-foreground-subtle mx-auto mb-3" />
+              <p className="text-foreground-muted text-sm">Aucun log disponible</p>
+              <p className="text-foreground-subtle text-xs mt-1">Les SMS envoyés via vos clés API apparaîtront ici</p>
+            </div>
+          ) : (
+            <div className="bg-surface border border-border rounded-xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-border bg-background">
+                      <th className="text-left px-4 py-3 text-foreground-subtle font-medium">Date</th>
+                      <th className="text-left px-4 py-3 text-foreground-subtle font-medium">Destinataire</th>
+                      <th className="text-left px-4 py-3 text-foreground-subtle font-medium">Sender</th>
+                      <th className="text-left px-4 py-3 text-foreground-subtle font-medium">Message</th>
+                      <th className="text-left px-4 py-3 text-foreground-subtle font-medium">Clé</th>
+                      <th className="text-left px-4 py-3 text-foreground-subtle font-medium">Statut</th>
+                      <th className="text-right px-4 py-3 text-foreground-subtle font-medium">SMS</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {transLogs.map((log) => (
+                      <tr key={log.id} className="hover:bg-background/50 transition-colors">
+                        <td className="px-4 py-3 text-foreground-muted whitespace-nowrap">
+                          {new Date(log.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-foreground">{log.destinataire}</td>
+                        <td className="px-4 py-3 font-mono text-primary">{log.sender}</td>
+                        <td className="px-4 py-3 text-foreground-muted max-w-xs truncate" title={log.contenu}>{log.contenu}</td>
+                        <td className="px-4 py-3 text-foreground-subtle">{log.apiKey?.name ?? '—'}</td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex px-2 py-0.5 rounded-full font-semibold text-xs ${
+                            log.statut === 'DELIVERED' ? 'bg-secondary/10 text-secondary' :
+                            log.statut === 'SENT' ? 'bg-primary/10 text-primary' :
+                            log.statut === 'FAILED' ? 'bg-danger/10 text-danger' :
+                            'bg-warning/10 text-warning'
+                          }`}>
+                            {log.statut === 'DELIVERED' ? 'Délivré' : log.statut === 'SENT' ? 'Envoyé' : log.statut === 'FAILED' ? 'Échec' : 'En attente'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right text-foreground-muted">{log.cost_sms}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
