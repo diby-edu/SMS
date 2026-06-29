@@ -34,6 +34,7 @@ type ChariowPayload = {
     url?: string
   }
   sale?: {
+    id?: string
     amount?: { formatted?: string }
     custom_fields?: Array<{ name: string; value: string }> | null
     custom_metadata?: Record<string, string> | null
@@ -88,7 +89,8 @@ function buildSmsMessage(payload: ChariowPayload): string {
   const customFieldsArr = Array.isArray(payload.sale?.custom_fields) ? payload.sale!.custom_fields! : []
   const findField = (keys: string[]) =>
     customFieldsArr.find(f => keys.some(k => f.name.toLowerCase().includes(k)))?.value ?? null
-  const motDePasse = findField(['password', 'mot_de_passe', 'file_password', 'pass', 'fichier', 'mdp', 'code'])
+  // Fallback : le mot de passe = sale.id (confirmé par email Chariow — "Commande # = Mot de passe du fichier")
+  const motDePasse = findField(['password', 'mot_de_passe', 'file_password', 'pass', 'fichier', 'mdp', 'code']) || payload.sale?.id || null
   // Portail client Chariow — URL fixe pour accéder aux achats
   const portalChariow = 'https://portal.chariow.com'
 
