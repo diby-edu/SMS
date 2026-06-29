@@ -25,32 +25,58 @@ export async function PATCH(
   }
 
   const body = await req.json()
-  const { default_otp_sender } = body
+  const { default_otp_sender, default_transactional_sender, dlr_webhook_url } = body
 
-  // Si un sender est spécifié, vérifier qu'il est APPROVED + OTP
+  // Valider le sender OTP si fourni
   if (default_otp_sender) {
     const senderRecord = await prisma.sender.findFirst({
-      where: {
-        user_id: session.user.id,
-        nom: default_otp_sender,
-        statut: 'APPROVED',
-        type_message: 'OTP',
-      },
+      where: { user_id: session.user.id, nom: default_otp_sender, statut: 'APPROVED', type_message: 'OTP' },
     })
     if (!senderRecord) {
-      return NextResponse.json(
-        { error: 'Sender OTP introuvable ou non approuvé' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Sender OTP introuvable ou non approuvé' }, { status: 400 })
     }
   }
 
+  // Valider le sender Transactionnel si fourni
+  if (default_transactional_sender) {
+    const senderRecord = await prisma.sender.findFirst({
+      where: {
+        user_id: session.user.id,
+        nom: default_transactional_sender,
+        statut: 'APPROVED',
+        type_message: { in: ['TRANSACTIONAL', 'PROMOTIONAL'] },
+      },
+    })
+    if (!senderRecord) {
+      return NextResponse.json({ error: 'Sender Transactionnel introuvable ou non approuvé' }, { status: 400 })
+    }
+  }
+
+  // Valider l'URL du webhook DLR si fournie
+  if (dlr_webhook_url && typeof dlr_webhook_url === 'string') {
+    try {
+      new URL(dlr_webhook_url)
+    } catch {
+      return NextResponse.json({ error: 'URL du webhook DLR invalide' }, { status: 400 })
+    }
+  }
+
+  const dataToUpdate: Record<string, string | null> = {}
+  if ('default_otp_sender' in body) dataToUpdate.default_otp_sender = default_otp_sender || null
+  if ('default_transactional_sender' in body) dataToUpdate.default_transactional_sender = default_transactional_sender || null
+  if ('dlr_webhook_url' in body) dataToUpdate.dlr_webhook_url = dlr_webhook_url || null
+
   const updated = await prisma.apiKey.update({
     where: { id: params.id },
-    data: { default_otp_sender: default_otp_sender || null },
+    data: dataToUpdate,
   })
 
-  return NextResponse.json({ success: true, default_otp_sender: updated.default_otp_sender })
+  return NextResponse.json({
+    success: true,
+    default_otp_sender: updated.default_otp_sender,
+    default_transactional_sender: updated.default_transactional_sender,
+    dlr_webhook_url: updated.dlr_webhook_url,
+  })
 }
 
 export async function DELETE(

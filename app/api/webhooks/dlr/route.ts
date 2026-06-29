@@ -47,16 +47,36 @@ export async function POST(req: NextRequest) {
     }
 
     // Mise à jour du message en base par son letexto_id
-    const updated = await prisma.message.updateMany({
+    const message = await prisma.message.findFirst({
       where: { letexto_id: letextoId },
-      data: { statut: mappedStatus },
+      include: { apiKey: { select: { dlr_webhook_url: true } } },
     })
 
-    if (updated.count === 0) {
-      // Peut arriver si le message n'existe pas encore en base (race condition)
+    if (!message) {
       console.warn(`[DLR] Aucun message trouvé avec letexto_id: ${letextoId}`)
     } else {
+      await prisma.message.update({
+        where: { id: message.id },
+        data: { statut: mappedStatus },
+      })
       console.log(`[DLR] Message ${letextoId} → statut mis à jour : ${mappedStatus}`)
+
+      // Forward vers le webhook DLR du client si configuré
+      const webhookUrl = message.apiKey?.dlr_webhook_url
+      if (webhookUrl) {
+        fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message_id: message.id,
+            letexto_id: letextoId,
+            status: mappedStatus,
+            phone: message.destinataire,
+            sender: message.sender,
+            timestamp: new Date().toISOString(),
+          }),
+        }).catch((e) => console.warn(`[DLR] Échec forward webhook client: ${e.message}`))
+      }
     }
 
     // Répondre 200 rapidement pour éviter les retries de LeTexto

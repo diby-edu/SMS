@@ -88,11 +88,25 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // ---- Résolution du sender ----
+    // Priorité : body sender > default_transactional_sender de la clé
+    const senderName = (sender?.trim()) || keyRecord.default_transactional_sender
+
+    if (!senderName) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Aucun sender configuré. Précisez le paramètre "sender" ou configurez un sender par défaut sur votre clé API.',
+        },
+        { status: 400 }
+      )
+    }
+
     // ---- Validation du sender — doit être APPROVED + TRANSACTIONAL ou PROMOTIONAL ----
     const senderRecord = await prisma.sender.findFirst({
       where: {
         user_id: keyRecord.user.id,
-        nom: sender.trim(),
+        nom: senderName,
         statut: 'APPROVED',
         type_message: { in: ['TRANSACTIONAL', 'PROMOTIONAL'] },
       },
@@ -102,7 +116,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          message: `Sender "${sender}" introuvable, non approuvé, ou non de type Transactionnel/Promotionnel`,
+          message: `Sender "${senderName}" introuvable, non approuvé, ou non de type Transactionnel/Promotionnel`,
         },
         { status: 400 }
       )
@@ -125,6 +139,7 @@ export async function POST(req: NextRequest) {
     const messageRecord = await prisma.message.create({
       data: {
         user_id: keyRecord.user.id,
+        api_key_id: keyRecord.id,
         sender: senderRecord.nom,
         destinataire: toClean,
         contenu: messageClean,

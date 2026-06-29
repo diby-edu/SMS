@@ -140,6 +140,7 @@ model Contact {
 model Message {
   id           String        @id @default(cuid())
   user_id      String
+  api_key_id   String?       // Si envoyé via API publique (SMS Transactionnel)
   sender       String        // Nom de l'expéditeur affiché
   destinataire String        // Numéro en format international
   contenu      String
@@ -148,9 +149,11 @@ model Message {
   cost_sms     Int           @default(1) // Nombre de SMS consommés (1 SMS = 160 chars)
   created_at   DateTime      @default(now())
 
-  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user   User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  apiKey ApiKey? @relation(fields: [api_key_id], references: [id], onDelete: SetNull)
 
   @@index([user_id])
+  @@index([api_key_id])
   @@index([letexto_id])
   @@map("messages")
 }
@@ -196,19 +199,22 @@ model Transaction {
   @@map("transactions")
 }
 
-// Clé API générée par le client pour utiliser l'API TextoPro (OTP + SMS)
+// Clé API générée par le client pour utiliser l'API TextoPro (OTP + SMS Transactionnel)
 model ApiKey {
-  id                 String    @id @default(cuid())
-  user_id            String
-  name               String    // Nom de l'application (ex: "Mon App Mobile")
-  key                String    @unique // Format: tp_live_xxxxxxxxxxxxxxxxxxxx
-  is_active          Boolean   @default(true)
-  default_otp_sender String?   // Nom du sender OTP utilisé par défaut (null = TextoPro)
-  last_used          DateTime?
-  created_at         DateTime  @default(now())
+  id                           String    @id @default(cuid())
+  user_id                      String
+  name                         String    // Nom de l'application (ex: "Mon App Mobile")
+  key                          String    @unique // Format: tp_live_xxxxxxxxxxxxxxxxxxxx
+  is_active                    Boolean   @default(true)
+  default_otp_sender           String?   // Nom du sender OTP par défaut
+  default_transactional_sender String?   // Nom du sender Transactionnel par défaut
+  dlr_webhook_url              String?   // URL de callback pour les accusés de livraison
+  last_used                    DateTime?
+  created_at                   DateTime  @default(now())
 
   user     User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
   otpCodes OtpCode[]
+  messages Message[]
 
   @@index([key])
   @@map("api_keys")

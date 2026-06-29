@@ -14,6 +14,7 @@ import {
   LogOut,
   MessageSquare,
   ShieldCheck,
+  Zap,
   X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -24,11 +25,12 @@ import { cn } from '@/lib/utils'
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
-  { href: '/sms', label: 'Envoyer un SMS', icon: Send },
+  { href: '/sms', label: 'SMS Promotionnel', icon: Send },
+  { href: '/transactionnel', label: 'SMS Transactionnel', icon: Zap },
+  { href: '/otp', label: 'OTP', icon: ShieldCheck },
   { href: '/historique', label: 'Historique', icon: History },
   { href: '/contacts', label: 'Contacts', icon: Users },
   { href: '/senders', label: 'Senders', icon: Tag },
-  { href: '/otp', label: 'API & Intégrations', icon: ShieldCheck },
 ]
 
 // ============================================================
