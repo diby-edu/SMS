@@ -10,7 +10,6 @@ import { sendSingleSMS } from '@/lib/letexto'
 
 const OTP_EXPIRY_MINUTES = 5
 const MAX_ATTEMPTS = 3
-const OTP_SENDER_FALLBACK = 'TextoPro'
 
 // Génère un code numérique à 6 chiffres
 function generateOtpCode(): string {
@@ -77,10 +76,11 @@ export async function POST(req: NextRequest) {
     }
 
     // ---- Résolution du sender ----
-    // Priorité : body > default_otp_sender de la clé > fallback 'TextoPro'
-    let senderName = keyRecord.default_otp_sender || OTP_SENDER_FALLBACK
+    // Priorité : body sender > default_otp_sender de la clé API
+    let senderName: string | null = null
+
     if (sender && typeof sender === 'string') {
-      // Vérifier que le sender appartient au client, est APPROVED et de type OTP
+      // Sender explicite : valider qu'il est APPROVED + OTP
       const senderRecord = await prisma.sender.findFirst({
         where: {
           user_id: keyRecord.user.id,
@@ -96,6 +96,18 @@ export async function POST(req: NextRequest) {
         )
       }
       senderName = senderRecord.nom
+    } else if (keyRecord.default_otp_sender) {
+      // Utiliser le sender par défaut de la clé API
+      senderName = keyRecord.default_otp_sender
+    } else {
+      // Aucun sender configuré
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Aucun sender OTP configuré. Précisez le paramètre "sender" dans votre requête ou configurez un sender par défaut sur votre clé API.',
+        },
+        { status: 400 }
+      )
     }
 
     // ---- Invalider les codes OTP précédents non expirés pour ce numéro ----

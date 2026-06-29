@@ -180,7 +180,7 @@ function ApiKeyRow({
                 onChange={(e) => setSelectedSender(e.target.value)}
                 className="flex-1 bg-background border border-border rounded-lg px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary"
               >
-                <option value="">TextoPro (défaut système)</option>
+                <option value="">-- Sélectionner --</option>
                 {otpSenders.map((s) => (
                   <option key={s.id} value={s.nom}>{s.nom}</option>
                 ))}
@@ -203,8 +203,8 @@ function ApiKeyRow({
             <div className="flex items-center gap-1.5 text-xs text-foreground-subtle">
               <Tag className="w-3 h-3" />
               <span>Sender OTP par défaut :</span>
-              <span className="font-mono text-foreground font-medium">
-                {apiKey.default_otp_sender ?? 'TextoPro'}
+              <span className={apiKey.default_otp_sender ? 'font-mono text-foreground font-medium' : 'text-danger font-medium'}>
+                {apiKey.default_otp_sender ?? 'Non configuré'}
               </span>
               <button
                 onClick={() => setEditingSender(true)}
@@ -420,7 +420,7 @@ export default function OtpPage() {
                     onChange={(e) => setNewKeyDefaultSender(e.target.value)}
                     className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-primary transition-colors"
                   >
-                    <option value="">TextoPro (sender système par défaut)</option>
+                    <option value="">-- Sélectionner un sender OTP --</option>
                     {otpSenders.map((s) => (
                       <option key={s.id} value={s.nom}>{s.nom}</option>
                     ))}
