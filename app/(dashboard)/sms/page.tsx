@@ -727,59 +727,102 @@ export default function SMSPage() {
           ====================================================== */}
       {step === 2 && (
         <div className="space-y-4 animate-slide-up">
-          <div className="bg-surface border border-border rounded-2xl p-6 space-y-4">
-            <h3 className="font-syne font-semibold text-base text-foreground">Résumé avant envoi</h3>
-            <div className="space-y-3">
-              {label && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-foreground-muted">Nom</span>
-                  <span className="text-sm text-foreground font-medium">{label}</span>
-                </div>
-              )}
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-foreground-muted">Expéditeur</span>
-                <span className="text-sm text-foreground font-medium">{senderNom}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-foreground-muted">Destinataires</span>
-                <span className="text-sm text-foreground font-medium">
-                  {nbContacts} contact{nbContacts > 1 ? 's' : ''}
-                  {source === 'groupe' && selectedGroup && ` (${selectedGroup.nom})`}
-                  {source === 'fichier' && fichierNom && ` (${fichierNom})`}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-foreground-muted">SMS par contact</span>
-                <span className="text-sm text-foreground">{partCount} SMS</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-foreground-muted">Total SMS débités</span>
-                <span className="text-sm font-bold text-warning">{coutTotal.toLocaleString('fr-FR')} SMS</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-foreground-muted">Coût estimé</span>
-                <span className="text-sm font-bold text-foreground">{formatFCFA(coutFCFA)}</span>
-              </div>
-              {scheduledAt && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-foreground-muted">Programmé le</span>
-                  <span className="text-sm font-semibold text-primary flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5" />
-                    {new Date(scheduledAt).toLocaleString('fr-FR')}
-                  </span>
-                </div>
-              )}
-              <div className="flex items-center justify-between border-t border-border pt-3">
-                <span className="text-sm text-foreground-muted">Solde après envoi</span>
-                <span className={cn('text-sm font-bold', soldeApres < 0 ? 'text-danger' : 'text-secondary')}>
-                  {soldeApres.toLocaleString('fr-FR')} SMS
-                </span>
-              </div>
+          <div className="bg-surface border border-border rounded-2xl overflow-hidden">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-border">
+              <h3 className="font-syne font-semibold text-base text-foreground">Récapitulatif de l&apos;envoi</h3>
+              <p className="text-xs text-foreground-muted mt-0.5">Vérifiez les informations avant de confirmer</p>
             </div>
 
-            <div className="bg-background border border-border rounded-xl p-4">
-              <p className="text-xs text-foreground-subtle mb-2 font-medium uppercase tracking-wider">Aperçu du message</p>
-              <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{content || '(message vide)'}</p>
+            {/* Body : phone mockup + summary */}
+            <div className="flex flex-col sm:flex-row gap-0">
+
+              {/* ---- Phone mockup ---- */}
+              <div className="sm:w-56 shrink-0 flex items-center justify-center bg-background/60 border-b sm:border-b-0 sm:border-r border-border py-8 px-6">
+                <div className="relative w-40">
+                  {/* Phone shell */}
+                  <div className="relative bg-[#1a1a2e] rounded-[2rem] border-4 border-[#2a2a4a] shadow-2xl pt-7 pb-5 px-3">
+                    {/* Notch */}
+                    <div className="absolute top-2 left-1/2 -translate-x-1/2 w-14 h-1.5 bg-[#2a2a4a] rounded-full" />
+                    {/* Screen */}
+                    <div className="bg-[#f0f0f5] rounded-xl overflow-hidden min-h-[180px] flex flex-col">
+                      {/* SMS header */}
+                      <div className="bg-[#e8e8ef] px-3 py-2 flex items-center gap-2 border-b border-[#d8d8e8]">
+                        <div className="w-6 h-6 rounded-full bg-primary/80 flex items-center justify-center shrink-0">
+                          <span className="text-[8px] font-bold text-white">{senderNom.charAt(0).toUpperCase()}</span>
+                        </div>
+                        <span className="text-[9px] font-semibold text-[#333] truncate">{senderNom}</span>
+                      </div>
+                      {/* Message bubble */}
+                      <div className="flex-1 p-2.5 flex flex-col gap-1.5">
+                        <div className="bg-[#e2fce7] rounded-xl rounded-tl-none px-2.5 py-2 max-w-[90%] shadow-sm">
+                          <p className="text-[9px] leading-[1.4] text-[#1a1a1a] break-words whitespace-pre-wrap">
+                            {content.length > 140 ? content.slice(0, 137) + '…' : content || '(message vide)'}
+                          </p>
+                        </div>
+                        <div className="flex justify-end">
+                          <span className="text-[7px] text-[#999]">Maintenant</span>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Home bar */}
+                    <div className="mt-3 mx-auto w-10 h-1 bg-[#2a2a4a] rounded-full" />
+                  </div>
+                </div>
+              </div>
+
+              {/* ---- Summary ---- */}
+              <div className="flex-1 px-6 py-5 space-y-0 divide-y divide-border">
+                {label && (
+                  <div className="flex items-center justify-between py-2.5">
+                    <span className="text-xs font-medium text-foreground-subtle uppercase tracking-wider">Libellé</span>
+                    <span className="text-sm text-foreground font-semibold text-right max-w-[60%] truncate">{label}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between py-2.5">
+                  <span className="text-xs font-medium text-foreground-subtle uppercase tracking-wider">Expéditeur</span>
+                  <span className="text-sm text-foreground font-semibold font-mono">{senderNom}</span>
+                </div>
+                <div className="flex items-start justify-between py-2.5 gap-4">
+                  <span className="text-xs font-medium text-foreground-subtle uppercase tracking-wider shrink-0">Destinataires</span>
+                  <span className="text-sm text-foreground font-semibold text-right">
+                    {nbContacts} contact{nbContacts > 1 ? 's' : ''}
+                    {source === 'groupe' && selectedGroup && (
+                      <span className="block text-xs text-foreground-muted font-normal">{selectedGroup.nom}</span>
+                    )}
+                    {source === 'fichier' && fichierNom && (
+                      <span className="block text-xs text-foreground-muted font-normal truncate max-w-[120px]">{fichierNom}</span>
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-2.5">
+                  <span className="text-xs font-medium text-foreground-subtle uppercase tracking-wider">SMS par contact</span>
+                  <span className="text-sm text-foreground font-semibold">{partCount} SMS</span>
+                </div>
+                <div className="flex items-center justify-between py-2.5">
+                  <span className="text-xs font-medium text-foreground-subtle uppercase tracking-wider">Total SMS débités</span>
+                  <span className="text-sm font-bold text-warning">{coutTotal.toLocaleString('fr-FR')} SMS</span>
+                </div>
+                <div className="flex items-center justify-between py-2.5">
+                  <span className="text-xs font-medium text-foreground-subtle uppercase tracking-wider">Coût estimé</span>
+                  <span className="text-sm font-bold text-foreground">{formatFCFA(coutFCFA)}</span>
+                </div>
+                {scheduledAt && (
+                  <div className="flex items-center justify-between py-2.5">
+                    <span className="text-xs font-medium text-foreground-subtle uppercase tracking-wider">Programmé le</span>
+                    <span className="text-sm font-semibold text-primary flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5" />
+                      {new Date(scheduledAt).toLocaleString('fr-FR')}
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between pt-3 pb-1">
+                  <span className="text-xs font-medium text-foreground-subtle uppercase tracking-wider">Solde après envoi</span>
+                  <span className={cn('text-base font-bold', soldeApres < 0 ? 'text-danger' : 'text-secondary')}>
+                    {soldeApres.toLocaleString('fr-FR')} SMS
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
