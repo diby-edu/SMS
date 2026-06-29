@@ -148,10 +148,11 @@ export async function POST(
       return NextResponse.json({ ok: true })
     }
 
-    // Valider le format du numéro — doit commencer par + (format international requis)
-    const phoneClean = phone.replace(/\s/g, '')
+    // Normaliser le numéro — ajouter + si absent
+    let phoneClean = phone.replace(/\s/g, '')
+    if (!phoneClean.startsWith('+')) phoneClean = '+' + phoneClean
     if (!/^\+[1-9]\d{7,14}$/.test(phoneClean)) {
-      console.warn(`[Chariow] Numéro invalide ou sans indicatif international: ${phoneClean}`)
+      console.warn(`[Chariow] Numéro invalide: ${phoneClean}`)
       return NextResponse.json({ ok: true })
     }
 
