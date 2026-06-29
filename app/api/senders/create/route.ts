@@ -47,14 +47,14 @@ export async function POST(req: NextRequest) {
 
     const { nom, type_message, description, email_contact, site_web, adresse, siege_social, exemple_message, activite } = result.data
 
-    // Vérifier l'unicité du sender pour cet utilisateur
+    // Vérifier l'unicité du sender pour cet utilisateur — même nom ET même type
     const existing = await prisma.sender.findFirst({
-      where: { user_id: session.user.id, nom },
+      where: { user_id: session.user.id, nom, type_message },
     })
 
     if (existing) {
       return NextResponse.json(
-        { errors: { nom: ['Vous avez déjà un sender avec ce nom'] } },
+        { errors: { nom: ['Vous avez déjà un sender avec ce nom et ce type'] } },
         { status: 409 }
       )
     }
