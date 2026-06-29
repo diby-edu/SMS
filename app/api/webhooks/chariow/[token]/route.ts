@@ -87,13 +87,14 @@ function buildSmsMessage(payload: ChariowPayload): string {
   // Champs personnalisés (mot de passe fichier, etc.)
   const customFields = payload.sale?.custom_fields || payload.sale?.custom_metadata || {}
   const motDePasse = customFields?.password || customFields?.mot_de_passe || customFields?.file_password || null
+  // Portail client Chariow — URL fixe pour accéder aux achats
+  const portalChariow = 'https://portal.chariow.com'
 
   switch (event) {
     case 'successful.sale': {
       let msg = `Bonjour ${prenom}, votre paiement${montant ? ` de ${montant}` : ''} pour ${produit} a bien ete recu.`
       if (motDePasse) msg += ` Mot de passe : ${motDePasse}.`
-      if (urlAchat) msg += ` Acces : ${urlAchat}`
-      else msg += ` Merci pour votre achat !`
+      msg += ` Acces : ${portalChariow}`
       return msg
     }
     case 'abandoned.sale': {
