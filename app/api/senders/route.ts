@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
       user_id: session.user.id,
       ...(approvedOnly && { statut: 'APPROVED' }),
     },
-    select: { id: true, nom: true, statut: true, created_at: true },
+    select: { id: true, nom: true, statut: true, type_message: true, created_at: true },
     orderBy: { created_at: 'desc' },
   })
 

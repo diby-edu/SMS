@@ -44,6 +44,7 @@ interface ApiKey {
 interface TransactionalSender {
   id: string
   nom: string
+  type_message: string | null
 }
 
 interface ChariowConfig {
@@ -748,7 +749,9 @@ export default function TransactionnelPage() {
                 >
                   <option value="">-- Sélectionner un sender --</option>
                   {transactionalSenders.map((s) => (
-                    <option key={s.id} value={s.nom}>{s.nom}</option>
+                    <option key={s.id} value={s.nom}>
+                      {s.nom} — {s.type_message === 'TRANSACTIONAL' ? 'Transactionnel' : 'Promotionnel'}
+                    </option>
                   ))}
                 </select>
                 <p className="text-xs text-foreground-subtle mt-1">
