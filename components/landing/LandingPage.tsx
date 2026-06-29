@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { motion, useInView, AnimatePresence } from 'framer-motion'
 
 // ──────────────────────────────────────────────────────────────
 // Config
@@ -19,7 +18,7 @@ const siteConfig = {
   },
   pricing: [
     { label: '10 000 SMS', price: 30, total: '300 000' },
-    { label: '25 000 SMS', price: 28, total: '700 000', popular: false },
+    { label: '25 000 SMS', price: 28, total: '700 000' },
     { label: '50 000 SMS', price: 26, total: '1 300 000', popular: true },
     { label: '100 000 SMS', price: 24, total: '2 400 000' },
     { label: '500 000 SMS', price: 21, total: '10 500 000' },
@@ -31,30 +30,30 @@ const siteConfig = {
       a: "Créez un compte gratuitement, rechargez votre solde via Orange Money, MTN, Wave ou Moov, puis envoyez vos premiers SMS en quelques minutes. Aucune installation requise.",
     },
     {
-      q: 'Quels opérateurs sont couverts en Côte d\'Ivoire ?',
+      q: "Quels opérateurs sont couverts en Côte d'Ivoire ?",
       a: "TextoPro couvre Orange CI, MTN CI, Moov Africa, Wave et tous les réseaux mobiles en Côte d'Ivoire. Vos SMS sont délivrés quel que soit l'opérateur du destinataire.",
     },
     {
-      q: 'Comment fonctionne l\'expéditeur personnalisé ?',
+      q: "Comment fonctionne l'expéditeur personnalisé ?",
       a: "Vous pouvez envoyer des SMS avec votre nom de marque (ex: \"MonShop\") à la place d'un numéro. L'expéditeur doit être validé par les opérateurs télécom, ce qui prend généralement quelques jours.",
     },
     {
-      q: 'Qu\'est-ce que le SMS Transactionnel via API ?',
+      q: "Qu'est-ce que le SMS Transactionnel via API ?",
       a: "L'API SMS Transactionnel vous permet d'envoyer des SMS automatiquement depuis votre application ou site web : confirmations de commande, alertes, notifications — sans passer par l'interface.",
     },
     {
-      q: 'Comment fonctionne l\'OTP TextoPro ?',
+      q: "Comment fonctionne l'OTP TextoPro ?",
       a: "L'API OTP génère et envoie automatiquement des codes de vérification à 6 chiffres, valables 5 minutes. Vous vérifiez ensuite le code avec un simple appel API.",
     },
     {
       q: 'Quels moyens de paiement sont acceptés ?',
-      a: "Orange Money, MTN Money, Wave, Moov Money et Free Money. Le rechargement est instantané.",
+      a: 'Orange Money, MTN Money, Wave, Moov Money et Free Money. Le rechargement est instantané.',
     },
   ],
 }
 
 // ──────────────────────────────────────────────────────────────
-// Animation helpers
+// FadeIn — scroll-triggered via IntersectionObserver
 // ──────────────────────────────────────────────────────────────
 function FadeIn({
   children,
@@ -65,18 +64,37 @@ function FadeIn({
   delay?: number
   className?: string
 }) {
-  const ref = useRef(null)
-  const inView = useInView(ref, { once: true, margin: '-80px' })
+  const ref = useRef<HTMLDivElement>(null)
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true)
+          observer.disconnect()
+        }
+      },
+      { rootMargin: '-60px' }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
   return (
-    <motion.div
+    <div
       ref={ref}
-      initial={{ opacity: 0, y: 32 }}
-      animate={inView ? { opacity: 1, y: 0 } : {}}
-      transition={{ duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] }}
       className={className}
+      style={{
+        opacity: visible ? 1 : 0,
+        transform: visible ? 'translateY(0)' : 'translateY(28px)',
+        transition: `opacity 0.6s ease ${delay}s, transform 0.6s cubic-bezier(.22,1,.36,1) ${delay}s`,
+      }}
     >
       {children}
-    </motion.div>
+    </div>
   )
 }
 
@@ -87,7 +105,7 @@ function Navbar() {
   const [open, setOpen] = useState(false)
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[#0A0A0F]/80 backdrop-blur-xl">
+    <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[#0A0A0F]/90 backdrop-blur-xl">
       <div className="mx-auto max-w-6xl px-4 flex items-center justify-between h-16">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
@@ -116,10 +134,7 @@ function Navbar() {
 
         {/* CTA */}
         <div className="hidden md:flex items-center gap-3">
-          <Link
-            href="/login"
-            className="text-sm text-white/70 hover:text-white transition-colors px-4 py-2"
-          >
+          <Link href="/login" className="text-sm text-white/70 hover:text-white transition-colors px-4 py-2">
             Connexion
           </Link>
           <Link
@@ -136,37 +151,31 @@ function Navbar() {
           onClick={() => setOpen(!open)}
           aria-label="Menu"
         >
-          <div className="w-5 h-0.5 bg-current mb-1.5" />
-          <div className="w-5 h-0.5 bg-current mb-1.5" />
-          <div className="w-5 h-0.5 bg-current" />
+          <div className="w-5 h-0.5 bg-current mb-1.5 transition-all" style={{ transform: open ? 'rotate(45deg) translate(0, 8px)' : '' }} />
+          <div className="w-5 h-0.5 bg-current mb-1.5 transition-all" style={{ opacity: open ? 0 : 1 }} />
+          <div className="w-5 h-0.5 bg-current transition-all" style={{ transform: open ? 'rotate(-45deg) translate(0, -8px)' : '' }} />
         </button>
       </div>
 
       {/* Mobile menu */}
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="md:hidden border-t border-white/5 bg-[#0A0A0F] overflow-hidden"
-          >
-            <div className="px-4 py-4 flex flex-col gap-4">
-              {[['Services', '#services'], ['Tarifs', '#tarifs'], ['API', '#api'], ['FAQ', '#faq']].map(([label, href]) => (
-                <a key={label} href={href} className="text-white/70 hover:text-white" onClick={() => setOpen(false)}>
-                  {label}
-                </a>
-              ))}
-              <div className="flex flex-col gap-2 pt-2 border-t border-white/10">
-                <Link href="/login" className="text-white/70 hover:text-white py-2">Connexion</Link>
-                <Link href="/register" className="bg-[#00D4FF] text-black font-medium px-4 py-2 rounded-lg text-center">
-                  Commencer gratuitement
-                </Link>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <div
+        className="md:hidden border-t border-white/5 bg-[#0A0A0F] overflow-hidden transition-all duration-300"
+        style={{ maxHeight: open ? '300px' : '0' }}
+      >
+        <div className="px-4 py-4 flex flex-col gap-4">
+          {[['Services', '#services'], ['Tarifs', '#tarifs'], ['API', '#api'], ['FAQ', '#faq']].map(([label, href]) => (
+            <a key={label} href={href} className="text-white/70 hover:text-white" onClick={() => setOpen(false)}>
+              {label}
+            </a>
+          ))}
+          <div className="flex flex-col gap-2 pt-2 border-t border-white/10">
+            <Link href="/login" className="text-white/70 hover:text-white py-2">Connexion</Link>
+            <Link href="/register" className="bg-[#00D4FF] text-black font-medium px-4 py-2 rounded-lg text-center">
+              Commencer gratuitement
+            </Link>
+          </div>
+        </div>
+      </div>
     </nav>
   )
 }
@@ -193,42 +202,34 @@ function Hero() {
       />
 
       <div className="relative mx-auto max-w-5xl px-4 text-center">
-        <motion.div
-          initial={{ opacity: 0, y: -16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+        <div
           className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#00D4FF]/20 bg-[#00D4FF]/5 text-[#00D4FF] text-xs font-medium mb-6"
+          style={{ animation: 'fadeSlideUp 0.5s ease both' }}
         >
           <span className="w-1.5 h-1.5 rounded-full bg-[#00D4FF] animate-pulse" />
           Plateforme SMS N°1 en Côte d'Ivoire
-        </motion.div>
+        </div>
 
-        <motion.h1
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+        <h1
           className="text-4xl sm:text-5xl md:text-6xl font-bold font-syne text-white leading-tight mb-6"
+          style={{ animation: 'fadeSlideUp 0.6s ease both', animationDelay: '0.1s' }}
         >
           Envoyez des SMS professionnels{' '}
           <span className="bg-gradient-to-r from-[#00D4FF] to-[#10B981] bg-clip-text text-transparent">
             en Côte d'Ivoire
           </span>
-        </motion.h1>
+        </h1>
 
-        <motion.p
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
+        <p
           className="text-lg text-white/60 max-w-2xl mx-auto mb-10"
+          style={{ animation: 'fadeSlideUp 0.6s ease both', animationDelay: '0.2s' }}
         >
           SMS promotionnels, notifications automatiques et OTP — une seule plateforme pour toute votre communication mobile. Dès 20 FCFA/SMS.
-        </motion.p>
+        </p>
 
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
+        <div
           className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16"
+          style={{ animation: 'fadeSlideUp 0.6s ease both', animationDelay: '0.3s' }}
         >
           <Link
             href="/register"
@@ -245,14 +246,12 @@ function Hero() {
           >
             Voir les services
           </a>
-        </motion.div>
+        </div>
 
         {/* Stats */}
-        <motion.div
-          initial={{ opacity: 0, y: 32 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
+        <div
           className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-3xl mx-auto"
+          style={{ animation: 'fadeSlideUp 0.6s ease both', animationDelay: '0.4s' }}
         >
           {[
             { value: siteConfig.stats.clients, label: 'Clients actifs' },
@@ -265,7 +264,7 @@ function Hero() {
               <div className="text-sm text-white/50 mt-1">{label}</div>
             </div>
           ))}
-        </motion.div>
+        </div>
       </div>
     </section>
   )
@@ -285,15 +284,8 @@ function Services() {
       color: '#00D4FF',
       tag: 'PRIORITAIRE',
       title: 'SMS Promotionnel',
-      description:
-        "Envoyez des campagnes SMS en masse à vos clients. Interface intuitive, expéditeur personnalisé, ciblage par listes de contacts et suivi en temps réel.",
-      features: [
-        'Envoi en masse illimité',
-        'Expéditeur personnalisé (marque)',
-        'Gestion des listes de contacts',
-        'Statistiques de livraison',
-        'Programmation des campagnes',
-      ],
+      description: "Envoyez des campagnes SMS en masse à vos clients. Interface intuitive, expéditeur personnalisé, ciblage par listes de contacts et suivi en temps réel.",
+      features: ['Envoi en masse illimité', 'Expéditeur personnalisé (marque)', 'Gestion des listes de contacts', 'Statistiques de livraison', 'Programmation des campagnes'],
       cta: 'Lancer une campagne',
     },
     {
@@ -305,36 +297,22 @@ function Services() {
       color: '#10B981',
       tag: 'API REST',
       title: 'SMS Transactionnel',
-      description:
-        "Intégrez l'envoi de SMS dans votre application via une API simple. Confirmations de commande, alertes, notifications automatiques — déclenchés par vos événements.",
-      features: [
-        'API REST simple (une clé suffit)',
-        'Intégration Chariow (webhooks)',
-        'Logs détaillés par clé API',
-        'Plusieurs clés par compte',
-        'Déclenchement par événement',
-      ],
+      description: "Intégrez l'envoi de SMS dans votre application via une API simple. Confirmations de commande, alertes, notifications automatiques — déclenchés par vos événements.",
+      features: ['API REST simple (une clé suffit)', 'Intégration Chariow (webhooks)', 'Logs détaillés par clé API', 'Plusieurs clés par compte', 'Déclenchement par événement'],
       cta: 'Voir la documentation',
     },
     {
       icon: (
         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.955 11.955 0 003 12c0 4.214 2.175 7.916 5.449 10.048a11.95 11.95 0 003.001 1.378 11.956 11.956 0 01-3-10.714z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.955 11.955 0 003 12c0 4.214 2.175 7.916 5.449 10.048a11.95 11.95 0 003.001 1.378" />
         </svg>
       ),
       color: '#F59E0B',
       tag: 'SÉCURITÉ',
       title: 'OTP par SMS',
-      description:
-        "Sécurisez les connexions et validez les transactions de vos utilisateurs avec des codes OTP à usage unique, envoyés par SMS et vérifiés via API.",
-      features: [
-        'Code à 6 chiffres, valable 5 min',
-        'Vérification via API',
-        'Gestion des tentatives',
-        'Logs de vérification',
-        'Multi-clés API',
-      ],
-      cta: 'Tester l\'OTP',
+      description: "Sécurisez les connexions et validez les transactions de vos utilisateurs avec des codes OTP à usage unique, envoyés par SMS et vérifiés via API.",
+      features: ['Code à 6 chiffres, valable 5 min', 'Vérification via API', 'Gestion des tentatives', 'Logs de vérification', 'Multi-clés API'],
+      cta: "Tester l'OTP",
     },
   ]
 
@@ -356,10 +334,7 @@ function Services() {
         <div className="grid md:grid-cols-3 gap-6">
           {services.map((service, i) => (
             <FadeIn key={service.title} delay={i * 0.1}>
-              <div
-                className="relative h-full rounded-2xl border border-white/8 bg-white/2 p-6 hover:border-white/15 transition-all group"
-                style={{ '--accent': service.color } as React.CSSProperties}
-              >
+              <div className="relative h-full rounded-2xl border border-white/8 bg-white/2 p-6 hover:border-white/15 transition-all group">
                 {service.tag && (
                   <div
                     className="absolute -top-3 left-6 px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wider"
@@ -371,7 +346,7 @@ function Services() {
 
                 <div
                   className="w-12 h-12 rounded-xl flex items-center justify-center mb-5"
-                  style={{ background: `${service.color}15`, color: service.color }}
+                  style={{ background: `${service.color}20`, color: service.color }}
                 >
                   {service.icon}
                 </div>
@@ -392,11 +367,11 @@ function Services() {
 
                 <Link
                   href="/register"
-                  className="inline-flex items-center gap-1.5 text-sm font-medium transition-colors"
+                  className="inline-flex items-center gap-1.5 text-sm font-medium transition-colors group-hover:gap-2.5"
                   style={{ color: service.color }}
                 >
                   {service.cta}
-                  <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                   </svg>
                 </Link>
@@ -414,26 +389,10 @@ function Services() {
 // ──────────────────────────────────────────────────────────────
 function HowItWorks() {
   const steps = [
-    {
-      num: '01',
-      title: 'Créez votre compte',
-      desc: 'Inscription gratuite en 2 minutes. Aucune carte bancaire requise pour démarrer.',
-    },
-    {
-      num: '02',
-      title: 'Rechargez votre solde',
-      desc: 'Payez via Orange Money, MTN, Wave ou Moov. Le rechargement est instantané.',
-    },
-    {
-      num: '03',
-      title: 'Configurez votre expéditeur',
-      desc: "Demandez votre nom d'expéditeur (marque). Validation par les opérateurs en quelques jours.",
-    },
-    {
-      num: '04',
-      title: 'Envoyez vos SMS',
-      desc: "Lancez vos campagnes, utilisez l'API ou activez les webhooks automatiques. C'est tout.",
-    },
+    { num: '01', title: 'Créez votre compte', desc: 'Inscription gratuite en 2 minutes. Aucune carte bancaire requise pour démarrer.' },
+    { num: '02', title: 'Rechargez votre solde', desc: 'Payez via Orange Money, MTN, Wave ou Moov. Le rechargement est instantané.' },
+    { num: '03', title: 'Configurez votre expéditeur', desc: "Demandez votre nom d'expéditeur (marque). Validation par les opérateurs en quelques jours." },
+    { num: '04', title: 'Envoyez vos SMS', desc: "Lancez vos campagnes, utilisez l'API ou activez les webhooks automatiques. C'est tout." },
   ]
 
   return (
@@ -451,10 +410,7 @@ function HowItWorks() {
           </p>
         </FadeIn>
 
-        <div className="grid md:grid-cols-4 gap-6 relative">
-          {/* Connector line */}
-          <div className="hidden md:block absolute top-8 left-[12.5%] right-[12.5%] h-px bg-gradient-to-r from-transparent via-[#00D4FF]/20 to-transparent" />
-
+        <div className="grid md:grid-cols-4 gap-6">
           {steps.map((step, i) => (
             <FadeIn key={step.num} delay={i * 0.1}>
               <div className="relative text-center p-6">
@@ -618,7 +574,6 @@ function CodePreview() {
 
           <FadeIn delay={0.15}>
             <div className="rounded-2xl border border-white/10 bg-[#0D0D14] overflow-hidden">
-              {/* Terminal header */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
                 <div className="flex gap-1.5">
                   <div className="w-3 h-3 rounded-full bg-red-500/60" />
@@ -630,12 +585,7 @@ function CodePreview() {
                   className="text-white/30 hover:text-white/70 text-xs flex items-center gap-1.5 transition-colors"
                 >
                   {copied ? (
-                    <>
-                      <svg className="w-3.5 h-3.5 text-[#10B981]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-[#10B981]">Copié !</span>
-                    </>
+                    <span className="text-[#10B981]">Copié !</span>
                   ) : (
                     <>
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -647,20 +597,14 @@ function CodePreview() {
                 </button>
               </div>
 
-              {/* Code */}
               <pre className="p-5 text-xs leading-relaxed overflow-x-auto">
                 <code>
                   {code.split('\n').map((line, i) => {
-                    if (line.startsWith('#')) {
-                      return <span key={i} className="text-white/30">{line}{'\n'}</span>
-                    }
-                    if (line.includes('curl') || line.includes('-X') || line.includes('-H') || line.includes('-d')) {
-                      return <span key={i} className="text-[#00D4FF]">{line}{'\n'}</span>
-                    }
-                    if (line.includes('"success"') || line.includes('"messageId"') || line.includes('"status"')) {
-                      return <span key={i} className="text-[#10B981]">{line}{'\n'}</span>
-                    }
-                    return <span key={i} className="text-white/70">{line}{'\n'}</span>
+                    let color = '#94A3B8'
+                    if (line.startsWith('#')) color = '#475569'
+                    else if (line.includes('curl') || line.startsWith('  -')) color = '#00D4FF'
+                    else if (line.includes('"success"') || line.includes('"messageId"') || line.includes('"status"')) color = '#10B981'
+                    return <span key={i} style={{ color, display: 'block' }}>{line || ' '}</span>
                   })}
                 </code>
               </pre>
@@ -700,29 +644,24 @@ function FAQ() {
                   className="w-full flex items-center justify-between px-5 py-4 text-left"
                 >
                   <span className="font-medium text-white pr-4">{item.q}</span>
-                  <motion.div
-                    animate={{ rotate: open === i ? 45 : 0 }}
-                    transition={{ duration: 0.2 }}
+                  <div
                     className="flex-shrink-0 w-5 h-5 text-white/40"
+                    style={{ transform: open === i ? 'rotate(45deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}
                   >
                     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
-                  </motion.div>
+                  </div>
                 </button>
-                <AnimatePresence initial={false}>
-                  {open === i && (
-                    <motion.div
-                      initial={{ height: 0 }}
-                      animate={{ height: 'auto' }}
-                      exit={{ height: 0 }}
-                      transition={{ duration: 0.25 }}
-                      className="overflow-hidden"
-                    >
-                      <p className="px-5 pb-4 text-white/50 text-sm leading-relaxed">{item.a}</p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                <div
+                  style={{
+                    maxHeight: open === i ? '400px' : '0',
+                    overflow: 'hidden',
+                    transition: 'max-height 0.25s ease',
+                  }}
+                >
+                  <p className="px-5 pb-4 text-white/50 text-sm leading-relaxed">{item.a}</p>
+                </div>
               </div>
             </FadeIn>
           ))}
@@ -741,7 +680,6 @@ function CTAFinal() {
       <div className="mx-auto max-w-4xl">
         <FadeIn>
           <div className="relative rounded-3xl border border-[#00D4FF]/20 bg-gradient-to-br from-[#00D4FF]/8 to-[#10B981]/5 p-10 md:p-16 text-center overflow-hidden">
-            {/* Glow */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-px bg-gradient-to-r from-transparent via-[#00D4FF]/50 to-transparent" />
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full bg-[#00D4FF]/5 blur-3xl pointer-events-none" />
 
@@ -771,9 +709,9 @@ function CTAFinal() {
                   rel="noopener noreferrer"
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-2 border border-white/15 hover:border-white/30 text-white/70 hover:text-white px-8 py-4 rounded-xl transition-all text-base"
                 >
-                  <svg className="w-5 h-5 text-[#25D366]" fill="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5" style={{ color: '#25D366' }} fill="currentColor" viewBox="0 0 24 24">
                     <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
-                    <path d="M11.999 0C5.373 0 0 5.373 0 12c0 2.117.549 4.107 1.512 5.838L.057 23.804a.75.75 0 00.931.932l5.966-1.457A11.944 11.944 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 11.999 0zm0 21.75a9.723 9.723 0 01-4.964-1.358l-.356-.211-3.683.9.914-3.584-.232-.371A9.72 9.72 0 012.25 12c0-5.375 4.375-9.75 9.749-9.75S21.75 6.625 21.75 12s-4.376 9.75-9.751 9.75z" />
+                    <path d="M12 0C5.373 0 0 5.373 0 12c0 2.117.549 4.107 1.512 5.838L.057 23.804a.75.75 0 00.931.932l5.966-1.457A11.944 11.944 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75a9.723 9.723 0 01-4.964-1.358l-.356-.211-3.683.9.914-3.584-.232-.371A9.72 9.72 0 012.25 12c0-5.375 4.375-9.75 9.75-9.75S21.75 6.625 21.75 12s-4.376 9.75-9.75 9.75z" />
                   </svg>
                   Parler à un conseiller
                 </a>
@@ -794,7 +732,6 @@ function Footer() {
     <footer className="border-t border-white/5 py-12 px-4">
       <div className="mx-auto max-w-6xl">
         <div className="grid md:grid-cols-4 gap-8 mb-10">
-          {/* Brand */}
           <div className="md:col-span-2">
             <div className="text-2xl font-bold font-syne bg-gradient-to-r from-[#00D4FF] to-[#10B981] bg-clip-text text-transparent mb-3">
               Texto<span className="text-white">Pro</span>
@@ -804,21 +741,12 @@ function Footer() {
             </p>
           </div>
 
-          {/* Links */}
           <div>
             <div className="text-white/60 text-xs font-semibold uppercase tracking-wider mb-4">Produit</div>
             <ul className="space-y-2.5">
-              {[
-                ['SMS Promotionnel', '#services'],
-                ['SMS Transactionnel', '#services'],
-                ['OTP par SMS', '#services'],
-                ['Tarifs', '#tarifs'],
-                ['API', '#api'],
-              ].map(([label, href]) => (
+              {[['SMS Promotionnel', '#services'], ['SMS Transactionnel', '#services'], ['OTP par SMS', '#services'], ['Tarifs', '#tarifs'], ['API', '#api']].map(([label, href]) => (
                 <li key={label}>
-                  <a href={href} className="text-white/40 hover:text-white/70 text-sm transition-colors">
-                    {label}
-                  </a>
+                  <a href={href} className="text-white/40 hover:text-white/70 text-sm transition-colors">{label}</a>
                 </li>
               ))}
             </ul>
@@ -827,15 +755,9 @@ function Footer() {
           <div>
             <div className="text-white/60 text-xs font-semibold uppercase tracking-wider mb-4">Compte</div>
             <ul className="space-y-2.5">
-              {[
-                ['Créer un compte', '/register'],
-                ['Se connecter', '/login'],
-                ['FAQ', '#faq'],
-              ].map(([label, href]) => (
+              {[['Créer un compte', '/register'], ['Se connecter', '/login'], ['FAQ', '#faq']].map(([label, href]) => (
                 <li key={label}>
-                  <a href={href} className="text-white/40 hover:text-white/70 text-sm transition-colors">
-                    {label}
-                  </a>
+                  <a href={href} className="text-white/40 hover:text-white/70 text-sm transition-colors">{label}</a>
                 </li>
               ))}
             </ul>
@@ -860,23 +782,23 @@ function Footer() {
 // ──────────────────────────────────────────────────────────────
 function WhatsAppButton() {
   return (
-    <motion.a
+    <a
       href={`https://wa.me/${siteConfig.whatsapp.replace('+', '')}?text=Bonjour, je souhaite en savoir plus sur TextoPro`}
       target="_blank"
       rel="noopener noreferrer"
-      initial={{ scale: 0, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ delay: 1.5, type: 'spring', stiffness: 260, damping: 20 }}
-      whileHover={{ scale: 1.1 }}
-      whileTap={{ scale: 0.95 }}
-      className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-[#25D366] shadow-lg shadow-[#25D366]/30 flex items-center justify-center"
+      className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+      style={{
+        background: '#25D366',
+        boxShadow: '0 4px 20px rgba(37,211,102,0.35)',
+        animation: 'fadeSlideUp 0.5s ease 1.5s both',
+      }}
       aria-label="Contacter sur WhatsApp"
     >
       <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
         <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
-        <path d="M11.999 0C5.373 0 0 5.373 0 12c0 2.117.549 4.107 1.512 5.838L.057 23.804a.75.75 0 00.931.932l5.966-1.457A11.944 11.944 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 11.999 0zm0 21.75a9.723 9.723 0 01-4.964-1.358l-.356-.211-3.683.9.914-3.584-.232-.371A9.72 9.72 0 012.25 12c0-5.375 4.375-9.75 9.749-9.75S21.75 6.625 21.75 12s-4.376 9.75-9.751 9.75z" />
+        <path d="M12 0C5.373 0 0 5.373 0 12c0 2.117.549 4.107 1.512 5.838L.057 23.804a.75.75 0 00.931.932l5.966-1.457A11.944 11.944 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75a9.723 9.723 0 01-4.964-1.358l-.356-.211-3.683.9.914-3.584-.232-.371A9.72 9.72 0 012.25 12c0-5.375 4.375-9.75 9.75-9.75S21.75 6.625 21.75 12s-4.376 9.75-9.75 9.75z" />
       </svg>
-    </motion.a>
+    </a>
   )
 }
 
