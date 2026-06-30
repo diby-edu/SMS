@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth'
 import LandingPage from '@/components/landing/LandingPage'
 import type { Metadata } from 'next'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'TextoPro — Envoyez des SMS professionnels en Côte d\'Ivoire',
   description: 'Plateforme SMS marketing pour les entreprises en Côte d\'Ivoire. SMS promotionnels, transactionnels et OTP. Tarifs dès 20 FCFA/SMS. Démarrez gratuitement.',
