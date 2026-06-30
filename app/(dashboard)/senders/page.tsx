@@ -33,7 +33,7 @@ interface Sender {
 }
 
 const TYPE_OPTIONS = [
-  { value: 'PROMOTIONAL', label: 'Marketing', desc: 'Offres, réductions, événements marketing et campagnes en masse' },
+  { value: 'MARKETING', label: 'Marketing', desc: 'Offres, réductions, événements marketing et campagnes en masse' },
   { value: 'TRANSACTIONAL', label: 'Transactionnel', desc: 'Confirmations, notifications de service' },
   { value: 'OTP', label: 'OTP', desc: 'Codes de vérification et authentification' },
 ]
@@ -486,7 +486,7 @@ export default function SendersPage() {
                       <span className={cn('badge border', config.color)}>{config.label}</span>
                       {sender.type_message && (
                         <span className="badge border border-border text-foreground-muted">
-                          {sender.type_message === 'PROMOTIONAL' ? 'Marketing'
+                          {sender.type_message === 'MARKETING' ? 'Marketing'
                             : sender.type_message === 'OTP' ? 'OTP'
                             : 'Transactionnel'}
                         </span>

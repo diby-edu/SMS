@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 const TYPE_LABELS: Record<string, string> = {
-  PROMOTIONAL: 'Marketing',
+  MARKETING: 'Marketing',
   OTP: 'OTP',
   TRANSACTIONAL: 'Transactionnel',
 }

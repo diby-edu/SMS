@@ -11,7 +11,7 @@ const createSenderSchema = z.object({
     .max(11, 'Maximum 11 caractères')
     .regex(/^[a-zA-Z0-9\s\-]+$/, 'Lettres, chiffres, espaces et tirets uniquement')
     .trim(),
-  type_message: z.enum(['PROMOTIONAL', 'OTP', 'TRANSACTIONAL'], {
+  type_message: z.enum(['MARKETING', 'OTP', 'TRANSACTIONAL'], {
     errorMap: () => ({ message: 'Type de message requis' }),
   }),
   description: z.string().min(10, 'Description trop courte (min 10 caractères)').max(500),

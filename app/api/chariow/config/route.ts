@@ -36,13 +36,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Le sender est requis' }, { status: 400 })
   }
 
-  // Vérifier que le sender est APPROVED + TRANSACTIONAL ou PROMOTIONAL
+  // Vérifier que le sender est APPROVED + TRANSACTIONAL ou MARKETING
   const senderRecord = await prisma.sender.findFirst({
     where: {
       user_id: session.user.id,
       nom: sender,
       statut: 'APPROVED',
-      type_message: { in: ['TRANSACTIONAL', 'PROMOTIONAL'] },
+      type_message: { in: ['TRANSACTIONAL', 'MARKETING'] },
     },
   })
 

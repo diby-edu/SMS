@@ -29,7 +29,7 @@ const PAYS_LABELS: Record<string, string> = Object.fromEntries(
 )
 
 const TYPE_LABELS: Record<string, string> = {
-  PROMOTIONAL: 'Marketing',
+  MARKETING: 'Marketing',
   OTP: 'OTP',
   TRANSACTIONAL: 'Transactionnel',
 }

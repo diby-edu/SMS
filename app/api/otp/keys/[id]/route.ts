@@ -44,7 +44,7 @@ export async function PATCH(
         user_id: session.user.id,
         nom: default_transactional_sender,
         statut: 'APPROVED',
-        type_message: { in: ['TRANSACTIONAL', 'PROMOTIONAL'] },
+        type_message: { in: ['TRANSACTIONAL', 'MARKETING'] },
       },
     })
     if (!senderRecord) {

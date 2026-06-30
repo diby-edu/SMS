@@ -102,13 +102,13 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // ---- Validation du sender — doit être APPROVED + TRANSACTIONAL ou PROMOTIONAL ----
+    // ---- Validation du sender — doit être APPROVED + TRANSACTIONAL ou MARKETING ----
     const senderRecord = await prisma.sender.findFirst({
       where: {
         user_id: keyRecord.user.id,
         nom: senderName,
         statut: 'APPROVED',
-        type_message: { in: ['TRANSACTIONAL', 'PROMOTIONAL'] },
+        type_message: { in: ['TRANSACTIONAL', 'MARKETING'] },
       },
     })
 

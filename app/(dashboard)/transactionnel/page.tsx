@@ -471,7 +471,7 @@ export default function TransactionnelPage() {
       setTransactionalSenders(
         (data.senders || []).filter(
           (s: { statut: string; type_message: string | null }) =>
-            s.statut === 'APPROVED' && ['TRANSACTIONAL', 'PROMOTIONAL'].includes(s.type_message ?? '')
+            s.statut === 'APPROVED' && ['TRANSACTIONAL', 'MARKETING'].includes(s.type_message ?? '')
         )
       )
     }
