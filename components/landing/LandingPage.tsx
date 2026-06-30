@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 // ──────────────────────────────────────────────────────────────
@@ -806,6 +808,16 @@ function WhatsAppButton() {
 // Main export
 // ──────────────────────────────────────────────────────────────
 export default function LandingPage() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (status === 'authenticated' && session) {
+      router.replace(session.user.role === 'ADMIN' ? '/admin' : '/dashboard')
+    }
+  }, [session, status, router])
+
+  // Pendant la vérification de session, afficher la page normalement
   return (
     <div className="min-h-screen bg-[#0A0A0F] text-white font-sans">
       <Navbar />
