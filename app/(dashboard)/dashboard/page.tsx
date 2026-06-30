@@ -5,6 +5,8 @@ import { prisma } from '@/lib/prisma'
 import {
   MessageSquare,
   Send,
+  History,
+  CreditCard,
 } from 'lucide-react'
 import StatsCard from '@/components/dashboard/StatsCard'
 import ActivityChart from '@/components/dashboard/ActivityChart'
@@ -217,7 +219,7 @@ export default async function DashboardPage() {
           {
             href: '/historique',
             label: 'Historique',
-            icon: Megaphone,
+            icon: History,
             color: 'bg-secondary/10 text-secondary hover:bg-secondary/15',
           },
           {
@@ -229,7 +231,7 @@ export default async function DashboardPage() {
           {
             href: '/recharge',
             label: 'Recharger',
-            icon: TrendingUp,
+            icon: CreditCard,
             color: 'bg-border text-foreground-muted hover:bg-[#252535]',
           },
         ].map(({ href, label, icon: Icon, color }) => (
