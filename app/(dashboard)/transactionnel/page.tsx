@@ -745,7 +745,7 @@ export default function TransactionnelPage() {
             <div className="flex items-start gap-3 bg-warning/8 border border-warning/20 rounded-xl px-4 py-3.5">
               <AlertCircle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
               <p className="text-xs text-warning">
-                Vous devez avoir un sender <strong>Transactionnel</strong> ou <strong>Promotionnel</strong> approuvé.{' '}
+                Vous devez avoir un sender <strong>Transactionnel</strong> ou <strong>Marketing</strong> approuvé.{' '}
                 <a href="/senders" className="underline font-semibold">Gérer mes senders →</a>
               </p>
             </div>
@@ -781,7 +781,7 @@ export default function TransactionnelPage() {
                   <option value="">-- Sélectionner un sender --</option>
                   {transactionalSenders.map((s) => (
                     <option key={s.id} value={s.nom}>
-                      {s.nom} — {s.type_message === 'TRANSACTIONAL' ? 'Transactionnel' : 'Promotionnel'}
+                      {s.nom} — {s.type_message === 'TRANSACTIONAL' ? 'Transactionnel' : 'Marketing'}
                     </option>
                   ))}
                 </select>

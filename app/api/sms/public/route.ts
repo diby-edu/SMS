@@ -1,7 +1,7 @@
 /**
  * POST /api/sms/public
  * Endpoint public — authentification par clé API (X-API-Key)
- * Envoie un SMS transactionnel ou promotionnel via un sender approuvé
+ * Envoie un SMS transactionnel ou marketing via un sender approuvé
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          message: `Sender "${senderName}" introuvable, non approuvé, ou non de type Transactionnel/Promotionnel`,
+          message: `Sender "${senderName}" introuvable, non approuvé, ou non de type Transactionnel/Marketing`,
         },
         { status: 400 }
       )

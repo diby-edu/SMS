@@ -5,8 +5,6 @@ import { prisma } from '@/lib/prisma'
 import {
   MessageSquare,
   Send,
-  TrendingUp,
-  Megaphone,
 } from 'lucide-react'
 import StatsCard from '@/components/dashboard/StatsCard'
 import ActivityChart from '@/components/dashboard/ActivityChart'
@@ -68,36 +66,13 @@ export default async function DashboardPage() {
   // ---- Requêtes Prisma en parallèle ----
   const [
     smsCeMoisCount,
-    deliveredCeMois,
-    totalNonPendingCeMois,
-    campagnesCeMois,
     messagesLast30Days,
     recentMessages,
     recentCampaigns,
     soldeActuel,
   ] = await Promise.all([
-    // SMS unitaires envoyés ce mois
+    // SMS envoyés ce mois
     prisma.message.count({
-      where: { user_id: userId, created_at: { gte: startOfMonth } },
-    }),
-    // SMS délivrés ce mois (pour le taux)
-    prisma.message.count({
-      where: {
-        user_id: userId,
-        created_at: { gte: startOfMonth },
-        statut: 'DELIVERED',
-      },
-    }),
-    // SMS non-pending ce mois (base du taux)
-    prisma.message.count({
-      where: {
-        user_id: userId,
-        created_at: { gte: startOfMonth },
-        statut: { not: 'PENDING' },
-      },
-    }),
-    // Campagnes ce mois
-    prisma.campaign.count({
       where: { user_id: userId, created_at: { gte: startOfMonth } },
     }),
     // Activité 30 jours (seulement la date)
@@ -141,12 +116,6 @@ export default async function DashboardPage() {
       select: { solde_sms: true },
     }),
   ])
-
-  // ---- Calculs ----
-  const tauxLivraison =
-    totalNonPendingCeMois > 0
-      ? Math.round((deliveredCeMois / totalNonPendingCeMois) * 100)
-      : 0
 
   const activityData = buildActivityData(messagesLast30Days)
 
@@ -219,7 +188,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* ---- Cartes de statistiques ---- */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <StatsCard
           title="Solde disponible"
           value={soldeSMS}
@@ -233,30 +202,6 @@ export default async function DashboardPage() {
           subtitle={`Depuis le 1er`}
           icon={Send}
           iconColor="secondary"
-        />
-        <StatsCard
-          title="Taux de livraison"
-          value={`${tauxLivraison}%`}
-          subtitle={
-            totalNonPendingCeMois > 0
-              ? `Sur ${totalNonPendingCeMois} SMS envoyés`
-              : 'Aucun envoi ce mois'
-          }
-          icon={TrendingUp}
-          iconColor={
-            tauxLivraison >= 80
-              ? 'secondary'
-              : tauxLivraison >= 50
-              ? 'warning'
-              : 'danger'
-          }
-        />
-        <StatsCard
-          title="Campagnes ce mois"
-          value={campagnesCeMois}
-          subtitle="Campagnes lancées"
-          icon={Megaphone}
-          iconColor="warning"
         />
       </div>
 

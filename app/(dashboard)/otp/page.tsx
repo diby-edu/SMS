@@ -683,8 +683,8 @@ export default function OtpPage() {
           <div className="border-t border-border pt-6">
             <h3 className="font-syne font-semibold text-foreground mb-4">API SMS — Envoi programmatique</h3>
             <p className="text-xs text-foreground-muted mb-4">
-              Envoyez des SMS transactionnels ou promotionnels depuis vos applications via la même clé API.
-              Le sender doit être de type <strong className="text-foreground">Transactionnel</strong> ou <strong className="text-foreground">Promotionnel</strong> et approuvé.
+              Envoyez des SMS transactionnels ou marketing depuis vos applications via la même clé API.
+              Le sender doit être de type <strong className="text-foreground">Transactionnel</strong> ou <strong className="text-foreground">Marketing</strong> et approuvé.
             </p>
           </div>
 
@@ -722,7 +722,7 @@ export default function OtpPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
             <div className="bg-surface border border-border rounded-xl p-4">
               <p className="font-medium text-foreground mb-1">Sender requis</p>
-              <p className="text-foreground-muted text-xs">Sender approuvé de type <strong className="text-foreground">Transactionnel</strong> ou <strong className="text-foreground">Promotionnel</strong></p>
+              <p className="text-foreground-muted text-xs">Sender approuvé de type <strong className="text-foreground">Transactionnel</strong> ou <strong className="text-foreground">Marketing</strong></p>
             </div>
             <div className="bg-surface border border-border rounded-xl p-4">
               <p className="font-medium text-foreground mb-1">Longueur max</p>

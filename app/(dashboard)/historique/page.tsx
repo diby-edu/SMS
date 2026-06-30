@@ -26,7 +26,7 @@ import {
 
 interface HistoryItem {
   id: string
-  type: 'MESSAGE' | 'CAMPAIGN'
+  source: 'MARKETING' | 'CAMPAIGN' | 'TRANSACTIONNEL' | 'OTP'
   sender: string
   destinataire: string
   contenu: string
@@ -52,8 +52,9 @@ const STATUTS = [
 
 const TYPES = [
   { value: 'all', label: 'Tous les types' },
-  { value: 'message', label: 'SMS unitaire' },
-  { value: 'campaign', label: 'Campagne' },
+  { value: 'marketing', label: 'SMS Marketing' },
+  { value: 'transactionnel', label: 'SMS Transactionnel' },
+  { value: 'otp', label: 'OTP' },
 ]
 
 // ============================================================
@@ -107,11 +108,25 @@ export default function HistoriquePage() {
   }
 
   // ---- Export CSV ----
+  const sourceLabel = (source: HistoryItem['source']) => {
+    if (source === 'CAMPAIGN') return 'Campagne Marketing'
+    if (source === 'TRANSACTIONNEL') return 'Transactionnel'
+    if (source === 'OTP') return 'OTP'
+    return 'SMS Marketing'
+  }
+
+  const sourceBadgeClass = (source: HistoryItem['source']) => {
+    if (source === 'CAMPAIGN') return 'bg-secondary/10 text-secondary'
+    if (source === 'TRANSACTIONNEL') return 'bg-[#10B981]/10 text-[#10B981]'
+    if (source === 'OTP') return 'bg-warning/10 text-warning'
+    return 'bg-primary/10 text-primary'
+  }
+
   const exportCSV = () => {
     const headers = ['Date', 'Type', 'Expéditeur', 'Destinataire', 'Message', 'Statut', 'SMS']
     const rows = items.map((item) => [
       formatDate(item.created_at),
-      item.type === 'CAMPAIGN' ? 'Campagne' : 'SMS unitaire',
+      sourceLabel(item.source),
       item.sender,
       item.destinataire,
       `"${item.contenu.replace(/"/g, '""')}"`,
@@ -263,15 +278,8 @@ export default function HistoriquePage() {
                   {/* Mobile */}
                   <div className="md:hidden space-y-2">
                     <div className="flex items-center justify-between">
-                      <span
-                        className={cn(
-                          'badge',
-                          item.type === 'CAMPAIGN'
-                            ? 'bg-secondary/10 text-secondary'
-                            : 'bg-primary/10 text-primary'
-                        )}
-                      >
-                        {item.type === 'CAMPAIGN' ? 'Campagne' : 'SMS'}
+                      <span className={cn('badge', sourceBadgeClass(item.source))}>
+                        {sourceLabel(item.source)}
                       </span>
                       <span
                         className={cn('badge', getStatusColor(item.statut))}
@@ -295,15 +303,8 @@ export default function HistoriquePage() {
                     <span className="text-xs text-foreground-muted">
                       {formatDate(item.created_at)}
                     </span>
-                    <span
-                      className={cn(
-                        'badge w-fit',
-                        item.type === 'CAMPAIGN'
-                          ? 'bg-secondary/10 text-secondary'
-                          : 'bg-primary/10 text-primary'
-                      )}
-                    >
-                      {item.type === 'CAMPAIGN' ? 'Campagne' : 'SMS unitaire'}
+                    <span className={cn('badge w-fit', sourceBadgeClass(item.source))}>
+                      {sourceLabel(item.source)}
                     </span>
                     <span className="text-sm text-foreground truncate">
                       {item.sender}

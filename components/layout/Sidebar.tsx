@@ -25,7 +25,7 @@ import { cn } from '@/lib/utils'
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
-  { href: '/sms', label: 'SMS Promotionnel', icon: Send },
+  { href: '/sms', label: 'SMS Marketing', icon: Send },
   { href: '/transactionnel', label: 'SMS Transactionnel', icon: Zap },
   { href: '/otp', label: 'OTP', icon: ShieldCheck },
   { href: '/historique', label: 'Historique', icon: History },

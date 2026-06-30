@@ -226,7 +226,7 @@ function Hero() {
           className="text-lg text-white/60 max-w-2xl mx-auto mb-10"
           style={{ animation: 'fadeSlideUp 0.6s ease both', animationDelay: '0.2s' }}
         >
-          SMS promotionnels, notifications automatiques et OTP — une seule plateforme pour toute votre communication mobile. Dès 20 FCFA/SMS.
+          SMS marketing, notifications automatiques et OTP — une seule plateforme pour toute votre communication mobile. Dès 20 FCFA/SMS.
         </p>
 
         <div
@@ -285,7 +285,7 @@ function Services() {
       ),
       color: '#00D4FF',
       tag: 'PRIORITAIRE',
-      title: 'SMS Promotionnel',
+      title: 'SMS Marketing',
       description: "Envoyez des campagnes SMS en masse à vos clients. Interface intuitive, expéditeur personnalisé, ciblage par listes de contacts et suivi en temps réel.",
       features: ['Envoi en masse illimité', 'Expéditeur personnalisé (marque)', 'Gestion des listes de contacts', 'Statistiques de livraison', 'Programmation des campagnes'],
       cta: 'Lancer une campagne',
@@ -758,7 +758,7 @@ function Footer() {
           <div>
             <div className="text-white/60 text-xs font-semibold uppercase tracking-wider mb-4">Produit</div>
             <ul className="space-y-2.5">
-              {[['SMS Promotionnel', '#services'], ['SMS Transactionnel', '#services'], ['OTP par SMS', '#services'], ['Tarifs', '#tarifs'], ['API', '#api']].map(([label, href]) => (
+              {[['SMS Marketing', '#services'], ['SMS Transactionnel', '#services'], ['OTP par SMS', '#services'], ['Tarifs', '#tarifs'], ['API', '#api']].map(([label, href]) => (
                 <li key={label}>
                   <a href={href} className="text-white/40 hover:text-white/70 text-sm transition-colors">{label}</a>
                 </li>
