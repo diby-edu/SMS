@@ -524,10 +524,11 @@ function CodePreview() {
   const [copied, setCopied] = useState(false)
 
   const code = `curl -X POST https://sms.numerik360.com/api/sms/public \\
-  -H "Authorization: Bearer tp_live_VOTRE_CLE" \\
+  -H "X-API-Key: tp_live_VOTRE_CLE" \\
   -H "Content-Type: application/json" \\
   -d '{
     "to": "+2250700000000",
+    "sender": "MonShop",
     "message": "Votre commande #1234 a été confirmée."
   }'
 
