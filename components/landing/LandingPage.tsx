@@ -19,12 +19,12 @@ const siteConfig = {
     pays: '8',
   },
   pricing: [
-    { label: '10 000 SMS', price: 30, total: '300 000' },
-    { label: '25 000 SMS', price: 28, total: '700 000' },
-    { label: '50 000 SMS', price: 26, total: '1 300 000', popular: true },
-    { label: '100 000 SMS', price: 24, total: '2 400 000' },
-    { label: '500 000 SMS', price: 21, total: '10 500 000' },
-    { label: '1 000 000 SMS', price: 20, total: '20 000 000' },
+    { fcfa: '10.000', sms: '300', prixSms: 33 },
+    { fcfa: '25.000', sms: '892', prixSms: 28 },
+    { fcfa: '50.000', sms: '1 923', prixSms: 26, popular: true },
+    { fcfa: '100.000', sms: '4 166', prixSms: 24 },
+    { fcfa: '500.000', sms: '23 809', prixSms: 21 },
+    { fcfa: '1.000.000', sms: '50 000', prixSms: 20 },
   ],
   faq: [
     {
@@ -451,37 +451,49 @@ function Pricing() {
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {siteConfig.pricing.map((tier, i) => (
-            <FadeIn key={tier.label} delay={i * 0.07}>
+            <FadeIn key={tier.fcfa} delay={i * 0.07}>
               <div
-                className={`relative rounded-2xl border p-6 transition-all hover:scale-[1.02] ${
+                className={`relative rounded-2xl border overflow-hidden transition-all hover:scale-[1.02] ${
                   tier.popular
-                    ? 'border-[#00D4FF]/40 bg-[#00D4FF]/5'
-                    : 'border-white/8 bg-white/2 hover:border-white/15'
+                    ? 'border-[#00D4FF]/40'
+                    : 'border-white/8 hover:border-white/15'
                 }`}
               >
                 {tier.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-[#00D4FF] text-black text-[10px] font-bold tracking-wider">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-[#00D4FF] text-black text-[10px] font-bold tracking-wider z-10">
                     PLUS POPULAIRE
                   </div>
                 )}
-                <div className="text-white/60 text-sm mb-3">{tier.label}</div>
-                <div className="flex items-baseline gap-1 mb-1">
-                  <span className={`text-4xl font-bold font-syne ${tier.popular ? 'text-[#00D4FF]' : 'text-white'}`}>
-                    {tier.price}
-                  </span>
-                  <span className="text-white/50 text-sm">FCFA/SMS</span>
-                </div>
-                <div className="text-white/30 text-xs mb-5">Soit {tier.total} FCFA au total</div>
-                <Link
-                  href="/register"
-                  className={`block w-full text-center py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                    tier.popular
-                      ? 'bg-[#00D4FF] hover:bg-[#00C4EF] text-black'
-                      : 'border border-white/10 hover:border-white/25 text-white/70 hover:text-white'
-                  }`}
+                {/* Header FCFA */}
+                <div
+                  className="px-5 py-3 text-center text-sm font-semibold"
+                  style={{
+                    background: tier.popular ? 'rgba(0,212,255,0.15)' : 'rgba(255,255,255,0.05)',
+                    color: tier.popular ? '#00D4FF' : 'rgba(255,255,255,0.6)',
+                  }}
                 >
-                  Choisir ce pack
-                </Link>
+                  {tier.fcfa} FCFA
+                </div>
+                {/* Body SMS */}
+                <div className="px-5 py-6 text-center bg-white/2">
+                  <div className={`text-5xl font-bold font-syne mb-1 ${tier.popular ? 'text-[#00D4FF]' : 'text-white'}`}>
+                    {tier.sms}
+                  </div>
+                  <div className="text-white/40 text-sm mb-1">SMS</div>
+                  <div className="text-white/40 text-xs">{tier.prixSms}F/SMS</div>
+                </div>
+                <div className="px-5 pb-5 bg-white/2">
+                  <Link
+                    href="/register"
+                    className={`block w-full text-center py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      tier.popular
+                        ? 'bg-[#00D4FF] hover:bg-[#00C4EF] text-black'
+                        : 'border border-white/10 hover:border-white/25 text-white/70 hover:text-white'
+                    }`}
+                  >
+                    Choisir ce pack
+                  </Link>
+                </div>
               </div>
             </FadeIn>
           ))}
