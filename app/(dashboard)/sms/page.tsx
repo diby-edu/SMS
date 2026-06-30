@@ -24,7 +24,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import Button from '@/components/ui/Button'
-import { cn, getSMSPartCount, formatFCFA, COUNTRY_PHONE_PREFIXES } from '@/lib/utils'
+import { cn, getSMSPartCount, formatFCFA } from '@/lib/utils'
 
 // ============================================================
 // TYPES
@@ -34,6 +34,14 @@ interface Sender {
   id: string
   nom: string
   statut: string
+  type_message?: string | null
+}
+
+interface ImportStats {
+  total: number
+  valid: number
+  invalid: number
+  duplicates: number
 }
 
 interface ContactList {
@@ -56,7 +64,6 @@ type Source = 'manuel' | 'groupe' | 'fichier'
 
 const TEMPLATES_KEY = 'textopro_sms_templates'
 const CHAMPS_DYNAMIQUES = ['{nom}', '{prenom}', '{telephone}']
-const PAYS = Object.entries(COUNTRY_PHONE_PREFIXES).map(([code, { name, prefix }]) => ({ code, name, prefix }))
 
 // ============================================================
 // HELPERS
@@ -98,7 +105,7 @@ export default function SMSPage() {
   const [groupId, setGroupId] = useState('')
   const [fichierContacts, setFichierContacts] = useState<Contact[]>([])
   const [fichierNom, setFichierNom] = useState('')
-  const [defaultCountry, setDefaultCountry] = useState('CI')
+  const [importStats, setImportStats] = useState<ImportStats | null>(null)
   const [content, setContent] = useState('')
   const [scheduledAt, setScheduledAt] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -211,17 +218,22 @@ export default function SMSPage() {
 
   // ---- Import CSV/XLSX ----
   const processRawContacts = useCallback((rows: Record<string, string>[]) => {
-    const prefix = COUNTRY_PHONE_PREFIXES[defaultCountry as keyof typeof COUNTRY_PHONE_PREFIXES]?.prefix || '+225'
     const valid: Contact[] = []
+    let invalidCount = 0
+    let duplicateCount = 0
+    const seen = new Set<string>()
+
     rows.forEach((row) => {
       const rawPhone = row['phone'] || row['telephone'] || row['numero'] || row['Phone'] || row['Telephone']
-      if (!rawPhone) return
+      if (!rawPhone) { invalidCount++; return }
       const cleaned = rawPhone.toString().replace(/[\s\-().]/g, '')
       let phone = cleaned
       if (!phone.startsWith('+')) {
-        phone = phone.startsWith('00') ? '+' + phone.slice(2) : `${prefix}${phone.replace(/^0/, '')}`
+        phone = phone.startsWith('00') ? '+' + phone.slice(2) : `+225${phone.replace(/^0/, '')}`
       }
-      if (phone.length < 10) return
+      if (phone.length < 10) { invalidCount++; return }
+      if (seen.has(phone)) { duplicateCount++; return }
+      seen.add(phone)
       const contact: Contact = { phone }
       Object.entries(row).forEach(([k, v]) => {
         if (!['phone', 'telephone', 'numero'].includes(k.toLowerCase())) {
@@ -230,13 +242,13 @@ export default function SMSPage() {
       })
       valid.push(contact)
     })
+
     setFichierContacts(valid)
-    if (valid.length > 0) {
-      toast.success(`${valid.length} contact${valid.length > 1 ? 's' : ''} importé${valid.length > 1 ? 's' : ''}`)
-    } else {
+    setImportStats({ total: rows.length, valid: valid.length, invalid: invalidCount, duplicates: duplicateCount })
+    if (valid.length === 0) {
       toast.error('Aucun numéro valide. Vérifiez la colonne "phone" ou "telephone"')
     }
-  }, [defaultCountry])
+  }, [])
 
   const parseFile = useCallback((file: File) => {
     setFichierContacts([])
@@ -270,6 +282,7 @@ export default function SMSPage() {
   const removeFichier = () => {
     setFichierContacts([])
     setFichierNom('')
+    setImportStats(null)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
@@ -412,7 +425,7 @@ export default function SMSPage() {
             </label>
             <input
               type="text"
-              placeholder="Ex: Promo juillet 2026, Rappel RDV..."
+              placeholder="Ex: Promo Tabaski 2026, Relance clients inactifs, Rappel RDV médical…"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               className={cn('input', errors.label && 'border-danger')}
@@ -431,9 +444,17 @@ export default function SMSPage() {
                   className={cn('input appearance-none pr-9', errors.sender && 'border-danger')}
                 >
                   <option value="">-- Sélectionner un expéditeur --</option>
-                  {senders.map((s) => (
-                    <option key={s.id} value={s.nom}>{s.nom}</option>
-                  ))}
+                  {senders.map((s) => {
+                    const typeLabel = s.type_message === 'MARKETING' ? 'Marketing'
+                      : s.type_message === 'OTP' ? 'OTP'
+                      : s.type_message === 'TRANSACTIONAL' ? 'Transactionnel'
+                      : null
+                    return (
+                      <option key={s.id} value={s.nom}>
+                        {s.nom}{typeLabel ? ` (${typeLabel})` : ''}
+                      </option>
+                    )
+                  })}
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-subtle pointer-events-none" />
               </div>
@@ -572,62 +593,118 @@ export default function SMSPage() {
             {/* Import CSV/XLSX */}
             {source === 'fichier' && (
               <div className="space-y-3">
-                {fichierContacts.length === 0 ? (
-                  <div>
-                    <div
-                      onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) parseFile(f) }}
-                      onDragOver={(e) => e.preventDefault()}
-                      onClick={() => fileInputRef.current?.click()}
-                      className={cn(
-                        'border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors',
-                        errors.contacts ? 'border-danger/40 hover:border-danger/60' : 'border-border hover:border-primary/40'
-                      )}
-                    >
-                      <Upload className="w-8 h-8 text-foreground-subtle mx-auto mb-3" />
-                      <p className="text-sm text-foreground-muted font-medium">
-                        Glissez votre fichier ici ou{' '}
-                        <span className="text-primary">cliquez pour sélectionner</span>
-                      </p>
-                      <p className="text-xs text-foreground-subtle mt-1">
-                        CSV ou Excel · Colonne requise : <code className="bg-border px-1 rounded">phone</code>
-                      </p>
-                    </div>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".csv,.xlsx,.xls"
-                      className="hidden"
-                      onChange={(e) => { const f = e.target.files?.[0]; if (f) parseFile(f) }}
-                    />
-                    <div className="flex items-center gap-2 mt-2">
-                      <label className="text-xs text-foreground-subtle">Pays par défaut :</label>
-                      <select
-                        value={defaultCountry}
-                        onChange={(e) => setDefaultCountry(e.target.value)}
-                        className="input py-1 text-xs w-auto"
-                      >
-                        {PAYS.map((p) => (
-                          <option key={p.code} value={p.code}>{p.name} ({p.prefix})</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-secondary/5 border border-secondary/20 rounded-xl px-4 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <FileSpreadsheet className="w-5 h-5 text-secondary" />
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{fichierNom}</p>
-                        <p className="text-xs text-foreground-muted">
-                          {fichierContacts.length} contact{fichierContacts.length > 1 ? 's' : ''} valide{fichierContacts.length > 1 ? 's' : ''}
-                        </p>
-                      </div>
-                    </div>
-                    <button onClick={removeFichier} className="text-foreground-subtle hover:text-danger transition-colors p-1">
-                      <X className="w-4 h-4" />
-                    </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,.xlsx,.xls"
+                  className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) parseFile(f) }}
+                />
+
+                {/* Zone de dépôt — toujours visible */}
+                {fichierContacts.length === 0 && (
+                  <div
+                    onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) parseFile(f) }}
+                    onDragOver={(e) => e.preventDefault()}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={cn(
+                      'border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors',
+                      errors.contacts ? 'border-danger/40 hover:border-danger/60' : 'border-border hover:border-primary/40'
+                    )}
+                  >
+                    <Upload className="w-8 h-8 text-foreground-subtle mx-auto mb-3" />
+                    <p className="text-sm text-foreground-muted font-medium">
+                      Glissez votre fichier ici ou{' '}
+                      <span className="text-primary">cliquez pour sélectionner</span>
+                    </p>
+                    <p className="text-xs text-foreground-subtle mt-1">
+                      CSV ou Excel (.xlsx) · Colonne obligatoire : <code className="bg-border px-1 rounded">phone</code> (avec indicatif, ex: +22507…)
+                    </p>
                   </div>
                 )}
+
+                {/* Stats après import */}
+                {importStats && (
+                  <div className="border border-border rounded-xl overflow-hidden">
+                    {/* Fichier + bouton remplacer */}
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface">
+                      <div className="flex items-center gap-2.5">
+                        <FileSpreadsheet className="w-4 h-4 text-secondary shrink-0" />
+                        <span className="text-sm font-medium text-foreground truncate max-w-[200px]">{fichierNom}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="flex items-center gap-1.5 text-xs text-foreground-muted hover:text-primary transition-colors px-2 py-1 rounded-lg hover:bg-primary/10"
+                          title="Importer un autre fichier"
+                        >
+                          <Upload className="w-3.5 h-3.5" />
+                          Remplacer
+                        </button>
+                        <button onClick={removeFichier} className="text-foreground-subtle hover:text-danger transition-colors p-1">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Compteurs */}
+                    <div className="px-4 py-3 space-y-2">
+                      <p className="text-xs font-semibold text-foreground-subtle uppercase tracking-wider">Nombre de contacts</p>
+                      <p className="text-2xl font-bold text-foreground">{importStats.total}</p>
+                      <div className="flex items-center gap-5 pt-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-secondary inline-block" />
+                          <span className="text-xs text-foreground-muted">Valides</span>
+                          <span className="text-sm font-bold text-secondary">{importStats.valid}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-danger inline-block" />
+                          <span className="text-xs text-foreground-muted">Invalides</span>
+                          <span className="text-sm font-bold text-danger">{importStats.invalid}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-foreground-subtle inline-block" />
+                          <span className="text-xs text-foreground-muted">Doublons</span>
+                          <span className="text-sm font-bold text-foreground-muted">{importStats.duplicates}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Info contacts invalides */}
+                    {importStats.invalid > 0 && (
+                      <div className="border-t border-border px-4 py-3 bg-danger/5">
+                        <p className="text-xs font-semibold text-danger mb-1">ⓘ Contacts invalides</p>
+                        <p className="text-xs text-foreground-muted leading-relaxed">
+                          Les contacts invalides ne respectent pas le format international de numéro de téléphone (ex: +22507XXXXXXXX). Corrigez la colonne <code className="bg-border px-1 rounded">phone</code> de votre fichier et réimportez.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Section Champs personnalisés */}
+                <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-3">
+                  <p className="text-xs font-semibold text-primary mb-1.5">ⓘ Champs personnalisés</p>
+                  <p className="text-xs text-foreground-muted leading-relaxed mb-2">
+                    Personnalisez chaque SMS avec les données de votre fichier. Ajoutez des colonnes <code className="bg-border px-1 rounded">nom</code>, <code className="bg-border px-1 rounded">prenom</code> dans votre CSV et utilisez les balises dans le message :
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {CHAMPS_DYNAMIQUES.map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => insertDynamic(tag)}
+                        className="text-xs bg-primary/10 text-primary hover:bg-primary/20 px-2 py-1 rounded-lg transition-colors font-mono"
+                      >
+                        {tag} →  insérer
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-foreground-subtle mt-2">
+                    Exemple : <em className="text-foreground-muted">«&nbsp;Bonjour &#123;prenom&#125;, votre commande est prête&nbsp;»</em> → chaque destinataire reçoit son propre prénom.
+                  </p>
+                </div>
               </div>
             )}
 
@@ -639,17 +716,6 @@ export default function SMSPage() {
             <div className="flex items-center justify-between mb-1.5">
               <label className="label mb-0">Message</label>
               <div className="flex items-center gap-1.5">
-                {/* Champs dynamiques (utiles surtout avec import fichier) */}
-                {(source === 'fichier' || fichierContacts.length > 0) && CHAMPS_DYNAMIQUES.map((tag) => (
-                  <button
-                    key={tag}
-                    type="button"
-                    onClick={() => insertDynamic(tag)}
-                    className="text-xs bg-border text-foreground-muted hover:text-primary hover:bg-primary/10 px-1.5 py-0.5 rounded transition-colors font-mono"
-                  >
-                    {tag}
-                  </button>
-                ))}
                 {templates.length > 0 && (
                   <div className="relative">
                     <button
@@ -713,8 +779,8 @@ export default function SMSPage() {
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 placeholder={source === 'fichier'
-                  ? "Ex: Bonjour {prenom}, profitez de -20% jusqu'au 31 juillet !"
-                  : "Ex: Bonjour, profitez de -20% sur toute notre collection jusqu'au 31 juillet."}
+                  ? "Ex: Bonjour {prenom}, votre commande N°{ref} est prête ! Récupérez-la avant 18h."
+                  : "Ex: Cher client, bénéficiez de -30% sur tous nos articles jusqu'au 31 juillet. Répondez STOP pour vous désabonner."}
                 rows={5}
                 maxLength={918}
                 className={cn('input resize-none', errors.content && 'border-danger')}
@@ -778,7 +844,7 @@ export default function SMSPage() {
         <div className="space-y-4 animate-slide-up">
           <div className="bg-surface border border-border rounded-2xl overflow-hidden">
             {/* Header */}
-            <div className="px-6 py-4 border-b border-border">
+            <div className="px-6 py-4 border-b border-border text-right">
               <h3 className="font-syne font-semibold text-base text-foreground">Récapitulatif de l&apos;envoi</h3>
               <p className="text-xs text-foreground-muted mt-0.5">Vérifiez les informations avant de confirmer</p>
             </div>
@@ -787,38 +853,38 @@ export default function SMSPage() {
             <div className="flex flex-col sm:flex-row gap-0">
 
               {/* ---- Phone mockup ---- */}
-              <div className="sm:w-72 shrink-0 flex items-center justify-center bg-background/60 border-b sm:border-b-0 sm:border-r border-border py-10 px-8">
-                <div className="relative w-56">
+              <div className="sm:w-[400px] shrink-0 flex items-center justify-center bg-background/60 border-b sm:border-b-0 sm:border-r border-border py-6 px-6">
+                <div className="relative w-full max-w-[320px]">
                   {/* Phone shell */}
-                  <div className="relative bg-[#1a1a2e] rounded-[2.5rem] border-[5px] border-[#2a2a4a] shadow-2xl pt-9 pb-6 px-4">
+                  <div className="relative bg-[#1a1a2e] rounded-[2.5rem] border-[5px] border-[#2a2a4a] shadow-2xl pt-10 pb-6 px-5">
                     {/* Notch */}
-                    <div className="absolute top-3 left-1/2 -translate-x-1/2 w-16 h-2 bg-[#2a2a4a] rounded-full" />
+                    <div className="absolute top-3 left-1/2 -translate-x-1/2 w-20 h-2.5 bg-[#2a2a4a] rounded-full" />
                     {/* Screen */}
-                    <div className="bg-[#f0f0f5] rounded-2xl overflow-hidden min-h-[240px] flex flex-col">
+                    <div className="bg-[#f0f0f5] rounded-2xl overflow-hidden min-h-[280px] flex flex-col">
                       {/* SMS header */}
-                      <div className="bg-[#e8e8ef] px-4 py-2.5 flex items-center gap-2.5 border-b border-[#d8d8e8]">
-                        <div className="w-8 h-8 rounded-full bg-primary/80 flex items-center justify-center shrink-0">
-                          <span className="text-[11px] font-bold text-white">{senderNom.charAt(0).toUpperCase()}</span>
+                      <div className="bg-[#e8e8ef] px-4 py-3 flex items-center gap-3 border-b border-[#d8d8e8]">
+                        <div className="w-10 h-10 rounded-full bg-primary/80 flex items-center justify-center shrink-0">
+                          <span className="text-[14px] font-bold text-white">{senderNom.charAt(0).toUpperCase()}</span>
                         </div>
                         <div>
-                          <p className="text-[11px] font-semibold text-[#222] leading-none">{senderNom}</p>
-                          <p className="text-[9px] text-[#888] mt-0.5">SMS</p>
+                          <p className="text-[13px] font-semibold text-[#222] leading-none">{senderNom}</p>
+                          <p className="text-[11px] text-[#888] mt-0.5">SMS</p>
                         </div>
                       </div>
                       {/* Message bubble */}
-                      <div className="flex-1 p-3 flex flex-col gap-2">
-                        <div className="bg-[#e2fce7] rounded-2xl rounded-tl-none px-3 py-2.5 max-w-[92%] shadow-sm">
-                          <p className="text-[11px] leading-[1.5] text-[#1a1a1a] break-words whitespace-pre-wrap">
+                      <div className="flex-1 p-4 flex flex-col gap-2">
+                        <div className="bg-[#e2fce7] rounded-2xl rounded-tl-none px-4 py-3 max-w-[95%] shadow-sm">
+                          <p className="text-[13px] leading-[1.6] text-[#1a1a1a] break-words whitespace-pre-wrap">
                             {content.length > 160 ? content.slice(0, 157) + '…' : content || '(message vide)'}
                           </p>
                         </div>
                         <div className="flex justify-end">
-                          <span className="text-[9px] text-[#aaa]">Maintenant ✓✓</span>
+                          <span className="text-[11px] text-[#aaa]">Maintenant ✓✓</span>
                         </div>
                       </div>
                     </div>
                     {/* Home bar */}
-                    <div className="mt-4 mx-auto w-14 h-1.5 bg-[#2a2a4a] rounded-full" />
+                    <div className="mt-5 mx-auto w-16 h-1.5 bg-[#2a2a4a] rounded-full" />
                   </div>
                 </div>
               </div>

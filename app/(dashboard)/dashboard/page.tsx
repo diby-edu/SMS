@@ -7,6 +7,7 @@ import {
   Send,
   History,
   CreditCard,
+  CheckCircle2,
 } from 'lucide-react'
 import StatsCard from '@/components/dashboard/StatsCard'
 import ActivityChart from '@/components/dashboard/ActivityChart'
@@ -68,6 +69,8 @@ export default async function DashboardPage() {
   // ---- Requêtes Prisma en parallèle ----
   const [
     smsCeMoisCount,
+    deliveredCeMois,
+    totalResolvedCeMois,
     messagesLast30Days,
     recentMessages,
     recentCampaigns,
@@ -76,6 +79,14 @@ export default async function DashboardPage() {
     // SMS envoyés ce mois
     prisma.message.count({
       where: { user_id: userId, created_at: { gte: startOfMonth } },
+    }),
+    // SMS livrés ce mois
+    prisma.message.count({
+      where: { user_id: userId, statut: 'DELIVERED', created_at: { gte: startOfMonth } },
+    }),
+    // SMS résolus (non PENDING) ce mois
+    prisma.message.count({
+      where: { user_id: userId, statut: { not: 'PENDING' }, created_at: { gte: startOfMonth } },
     }),
     // Activité 30 jours (seulement la date)
     prisma.message.findMany({
@@ -118,6 +129,10 @@ export default async function DashboardPage() {
       select: { solde_sms: true },
     }),
   ])
+
+  const tauxSucces = totalResolvedCeMois > 0
+    ? Math.round((deliveredCeMois / totalResolvedCeMois) * 100)
+    : null
 
   const activityData = buildActivityData(messagesLast30Days)
 
@@ -190,7 +205,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* ---- Cartes de statistiques ---- */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <StatsCard
           title="Solde disponible"
           value={soldeSMS}
@@ -201,8 +216,15 @@ export default async function DashboardPage() {
         <StatsCard
           title="SMS ce mois"
           value={smsCeMoisCount}
-          subtitle={`Depuis le 1er`}
+          subtitle="Depuis le 1er"
           icon={Send}
+          iconColor="secondary"
+        />
+        <StatsCard
+          title="Taux de succès"
+          value={tauxSucces !== null ? `${tauxSucces}%` : '—'}
+          subtitle={tauxSucces !== null ? `${deliveredCeMois} livrés ce mois` : 'Aucun envoi ce mois'}
+          icon={CheckCircle2}
           iconColor="secondary"
         />
       </div>
