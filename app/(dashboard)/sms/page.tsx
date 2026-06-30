@@ -62,21 +62,6 @@ const PAYS = Object.entries(COUNTRY_PHONE_PREFIXES).map(([code, { name, prefix }
 // HELPERS
 // ============================================================
 
-function parseManualNumbers(input: string): Contact[] {
-  return input
-    .split(/[;,\n]+/)
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .map((raw) => {
-      const cleaned = raw.replace(/[\s\-().]/g, '')
-      let phone = cleaned
-      if (!phone.startsWith('+')) {
-        if (phone.startsWith('00')) phone = '+' + phone.slice(2)
-      }
-      return { phone }
-    })
-    .filter((c) => c.phone.startsWith('+') && c.phone.length >= 10)
-}
 
 function loadTemplates(): MessageTemplate[] {
   try {
@@ -108,7 +93,8 @@ export default function SMSPage() {
   const [label, setLabel] = useState('')
   const [senderNom, setSenderNom] = useState('')
   const [source, setSource] = useState<Source>('manuel')
-  const [manuelInput, setManuelInput] = useState('')
+  const [phoneNumbers, setPhoneNumbers] = useState<string[]>([])
+  const [phoneInputValue, setPhoneInputValue] = useState('')
   const [groupId, setGroupId] = useState('')
   const [fichierContacts, setFichierContacts] = useState<Contact[]>([])
   const [fichierNom, setFichierNom] = useState('')
@@ -130,7 +116,7 @@ export default function SMSPage() {
   const soldeSMS = session?.user?.solde_sms ?? 0
   const partCount = getSMSPartCount(content)
 
-  const parsedContacts = source === 'manuel' ? parseManualNumbers(manuelInput) : []
+  const parsedContacts = source === 'manuel' ? phoneNumbers.map((phone) => ({ phone })) : []
   const selectedGroup = contactLists.find((l) => l.id === groupId)
   const nbContacts =
     source === 'manuel'
@@ -166,6 +152,33 @@ export default function SMSPage() {
 
     setTemplates(loadTemplates())
   }, [])
+
+  // ---- Tag input numéros ----
+  const addPhoneTag = (raw: string) => {
+    const cleaned = raw.trim().replace(/[\s\-().]/g, '')
+    if (!cleaned) return
+    let phone = cleaned
+    if (!phone.startsWith('+')) {
+      if (phone.startsWith('00')) phone = '+' + phone.slice(2)
+    }
+    if (phone.startsWith('+') && phone.length >= 10 && !phoneNumbers.includes(phone)) {
+      setPhoneNumbers((prev) => [...prev, phone])
+    }
+    setPhoneInputValue('')
+  }
+
+  const handlePhoneKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ';') {
+      e.preventDefault()
+      addPhoneTag(phoneInputValue.replace(/;$/, ''))
+    } else if (e.key === 'Backspace' && !phoneInputValue && phoneNumbers.length > 0) {
+      setPhoneNumbers((prev) => prev.slice(0, -1))
+    }
+  }
+
+  const removePhoneTag = (index: number) => {
+    setPhoneNumbers((prev) => prev.filter((_, i) => i !== index))
+  }
 
   // ---- Templates ----
   const handleSaveTemplate = () => {
@@ -321,7 +334,7 @@ export default function SMSPage() {
           : `${data.nb_contacts} SMS envoyés avec succès !`)
       }
 
-      setLabel(''); setManuelInput(''); setContent(''); setGroupId('')
+      setLabel(''); setPhoneNumbers([]); setPhoneInputValue(''); setContent(''); setGroupId('')
       setScheduledAt(''); setFichierContacts([]); setFichierNom(''); setStep(1)
     } catch {
       toast.error('Erreur réseau. Veuillez réessayer.')
@@ -451,7 +464,7 @@ export default function SMSPage() {
                 <button
                   key={value}
                   type="button"
-                  onClick={() => { setSource(value); setGroupId(''); setManuelInput(''); removeFichier() }}
+                  onClick={() => { setSource(value); setGroupId(''); setPhoneNumbers([]); setPhoneInputValue(''); removeFichier() }}
                   className={cn(
                     'flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all',
                     source === value
@@ -464,19 +477,55 @@ export default function SMSPage() {
               ))}
             </div>
 
-            {/* Saisie manuelle */}
+            {/* Saisie manuelle — tag input */}
             {source === 'manuel' && (
               <div className="space-y-2">
-                <textarea
-                  value={manuelInput}
-                  onChange={(e) => setManuelInput(e.target.value)}
-                  placeholder={`Entrez les numéros avec indicatif pays\nEx: +2250707000001; +2210707000002\nUn numéro par ligne ou séparés par ";"`}
-                  rows={4}
-                  className={cn('input resize-none font-mono text-sm', errors.contacts && 'border-danger')}
-                />
-                {parsedContacts.length > 0 && (
+                <div
+                  className={cn(
+                    'input min-h-[80px] flex flex-wrap gap-2 p-2 cursor-text',
+                    errors.contacts && 'border-danger'
+                  )}
+                  onClick={() => document.getElementById('phone-tag-input')?.focus()}
+                >
+                  {phoneNumbers.map((phone, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center gap-1.5 bg-primary/15 text-primary text-sm font-mono px-2.5 py-1 rounded-lg shrink-0"
+                    >
+                      {phone}
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); removePhoneTag(i) }}
+                        className="hover:text-danger transition-colors"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    id="phone-tag-input"
+                    type="text"
+                    value={phoneInputValue}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      if (val.endsWith(';')) {
+                        addPhoneTag(val.slice(0, -1))
+                      } else {
+                        setPhoneInputValue(val)
+                      }
+                    }}
+                    onKeyDown={handlePhoneKeyDown}
+                    onBlur={() => { if (phoneInputValue.trim()) addPhoneTag(phoneInputValue) }}
+                    placeholder={phoneNumbers.length === 0 ? '+2250707000001 — Entrée ou ; pour valider' : ''}
+                    className="flex-1 min-w-[220px] bg-transparent outline-none text-sm font-mono placeholder:text-foreground-subtle py-1"
+                  />
+                </div>
+                <p className="text-xs text-foreground-subtle">
+                  Tapez un numéro avec indicatif (+225…) puis appuyez sur <kbd className="bg-border px-1 py-0.5 rounded text-[11px]">Entrée</kbd> ou <kbd className="bg-border px-1 py-0.5 rounded text-[11px]">;</kbd> pour l&apos;ajouter.
+                </p>
+                {phoneNumbers.length > 0 && (
                   <p className="text-xs text-secondary font-medium">
-                    ✓ {parsedContacts.length} numéro{parsedContacts.length > 1 ? 's' : ''} valide{parsedContacts.length > 1 ? 's' : ''} détecté{parsedContacts.length > 1 ? 's' : ''}
+                    ✓ {phoneNumbers.length} numéro{phoneNumbers.length > 1 ? 's' : ''} ajouté{phoneNumbers.length > 1 ? 's' : ''}
                   </p>
                 )}
               </div>
