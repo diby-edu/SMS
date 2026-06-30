@@ -17,7 +17,6 @@ import {
   BookMarked,
   Calendar,
   Save,
-  FolderOpen,
   X,
   Upload,
   FileSpreadsheet,
@@ -53,6 +52,7 @@ interface ContactList {
 interface MessageTemplate {
   name: string
   content: string
+  senderNom?: string
 }
 
 interface Contact {
@@ -112,9 +112,7 @@ export default function SMSPage() {
 
   // ---- Templates ----
   const [templates, setTemplates] = useState<MessageTemplate[]>([])
-  const [showTemplateSave, setShowTemplateSave] = useState(false)
-  const [templateName, setTemplateName] = useState('')
-  const [showTemplateLoad, setShowTemplateLoad] = useState(false)
+  const [drawerSaveName, setDrawerSaveName] = useState('')
 
   // ---- Résultat ----
   const [loading, setLoading] = useState(false)
@@ -190,19 +188,18 @@ export default function SMSPage() {
   // ---- Templates ----
   const handleSaveTemplate = () => {
     if (!content.trim()) { toast.error('Le message est vide'); return }
-    if (!templateName.trim()) { toast.error('Donnez un nom au modèle'); return }
-    const existing = templates.filter((t) => t.name !== templateName.trim())
-    const updated = [...existing, { name: templateName.trim(), content: content.trim() }]
+    if (!drawerSaveName.trim()) { toast.error('Donnez un nom au modèle'); return }
+    const existing = templates.filter((t) => t.name !== drawerSaveName.trim())
+    const updated = [...existing, { name: drawerSaveName.trim(), content: content.trim(), senderNom: senderNom || undefined }]
     saveTemplates(updated)
     setTemplates(updated)
-    setShowTemplateSave(false)
-    setTemplateName('')
+    setDrawerSaveName('')
     toast.success('Modèle enregistré')
   }
 
   const handleLoadTemplate = (t: MessageTemplate) => {
     setContent(t.content)
-    setShowTemplateLoad(false)
+    if (t.senderNom) setSenderNom(t.senderNom)
     toast.success(`Modèle "${t.name}" chargé`)
   }
 
@@ -360,480 +357,520 @@ export default function SMSPage() {
   // RENDU
   // ============================================================
 
+  // ---- Drawer : type label du sender ----
+  const senderTypeLabel = (() => {
+    const s = senders.find((s) => s.nom === senderNom)
+    if (!s?.type_message) return null
+    return s.type_message === 'MARKETING' ? 'Marketing'
+      : s.type_message === 'OTP' ? 'OTP'
+      : s.type_message === 'TRANSACTIONAL' ? 'Transactionnel'
+      : null
+  })()
+
   return (
-    <div className={cn('mx-auto space-y-6 animate-fade-in', step === 1 ? 'max-w-2xl' : 'max-w-4xl')}>
-      {/* ---- En-tête ---- */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="font-syne font-bold text-xl text-foreground">Envoyer un SMS</h2>
-          <p className="text-sm text-foreground-muted mt-0.5">
-            Envoi unitaire ou en masse vers vos contacts
-          </p>
-        </div>
-        <div className={cn(
-          'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold shrink-0',
-          soldeSMS === 0 ? 'text-danger bg-danger/10 border-danger/20'
-            : soldeSMS < 20 ? 'text-warning bg-warning/10 border-warning/20'
-            : 'text-primary bg-primary/10 border-primary/20'
-        )}>
-          <MessageSquare className="w-3.5 h-3.5" />
-          {soldeSMS.toLocaleString('fr-FR')} SMS disponibles
-        </div>
-      </div>
-
-      {/* ---- Alerte solde vide ---- */}
-      {soldeSMS === 0 && (
-        <div className="flex items-start gap-3 bg-danger/8 border border-danger/20 rounded-xl px-4 py-4">
-          <AlertCircle className="w-5 h-5 text-danger shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm text-danger font-medium">Votre solde est épuisé</p>
-            <p className="text-xs text-danger/70 mt-0.5">Rechargez vos crédits pour pouvoir envoyer des SMS.</p>
-            <Link href="/recharge" className="inline-flex items-center gap-1.5 mt-2 text-xs text-danger font-semibold hover:text-danger/80 transition-colors">
-              <CreditCard className="w-3.5 h-3.5" />Recharger maintenant
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {/* ---- Indicateur d'étape ---- */}
-      <div className="flex items-center gap-3">
-        {[{ n: 1, label: 'Configuration' }, { n: 2, label: 'Confirmation' }].map(({ n, label: lbl }, i) => (
-          <div key={n} className="flex items-center gap-2">
-            <div className={cn(
-              'w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors',
-              step === n ? 'bg-primary text-background' : step > n ? 'bg-secondary text-background' : 'bg-border text-foreground-muted'
-            )}>
-              {step > n ? '✓' : n}
-            </div>
-            <span className={cn('text-xs font-medium', step === n ? 'text-foreground' : 'text-foreground-muted')}>{lbl}</span>
-            {i < 1 && <div className="w-8 h-px bg-border" />}
-          </div>
-        ))}
-      </div>
+    <div className="mx-auto animate-fade-in max-w-6xl">
 
       {/* ======================================================
-          ÉTAPE 1 — Configuration
+          ÉTAPE 1 — Configuration + Drawer modèles
           ====================================================== */}
       {step === 1 && (
-        <div className="bg-surface border border-border rounded-2xl p-6 space-y-5">
+        <div className="flex gap-5 items-start">
 
-          {/* Nom de l'envoi */}
-          <div>
-            <label className="label">
-              Nom de l&apos;envoi{' '}
-              <span className="text-foreground-subtle font-normal">(optionnel pour un seul destinataire)</span>
-            </label>
-            <input
-              type="text"
-              placeholder="Ex: Promo Tabaski 2026, Relance clients inactifs, Rappel RDV médical…"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              className={cn('input', errors.label && 'border-danger')}
-            />
-            {errors.label && <p className="mt-1.5 text-xs text-danger">⚠ {errors.label}</p>}
-          </div>
+          {/* ---- Contenu principal ---- */}
+          <div className="flex-1 min-w-0 space-y-5">
 
-          {/* Expéditeur */}
-          <div>
-            <label className="label">Expéditeur (Sender ID)</label>
-            {senders.length > 0 ? (
-              <div className="relative">
-                <select
-                  value={senderNom}
-                  onChange={(e) => setSenderNom(e.target.value)}
-                  className={cn('input appearance-none pr-9', errors.sender && 'border-danger')}
-                >
-                  <option value="">-- Sélectionner un expéditeur --</option>
-                  {senders.map((s) => {
-                    const typeLabel = s.type_message === 'MARKETING' ? 'Marketing'
-                      : s.type_message === 'OTP' ? 'OTP'
-                      : s.type_message === 'TRANSACTIONAL' ? 'Transactionnel'
-                      : null
-                    return (
-                      <option key={s.id} value={s.nom}>
-                        {s.nom}{typeLabel ? ` (${typeLabel})` : ''}
-                      </option>
-                    )
-                  })}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-subtle pointer-events-none" />
+            {/* En-tête */}
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="font-syne font-bold text-xl text-foreground">Envoyer un SMS</h2>
+                <p className="text-sm text-foreground-muted mt-0.5">Envoi unitaire ou en masse vers vos contacts</p>
               </div>
-            ) : (
-              <div className="space-y-2">
-                <div className="input bg-border/30 text-foreground-subtle text-sm flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-warning shrink-0" />
-                  Aucun sender validé pour le moment
+              <div className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold shrink-0',
+                soldeSMS === 0 ? 'text-danger bg-danger/10 border-danger/20'
+                  : soldeSMS < 20 ? 'text-warning bg-warning/10 border-warning/20'
+                  : 'text-primary bg-primary/10 border-primary/20'
+              )}>
+                <MessageSquare className="w-3.5 h-3.5" />
+                {soldeSMS.toLocaleString('fr-FR')} SMS disponibles
+              </div>
+            </div>
+
+            {/* Alerte solde vide */}
+            {soldeSMS === 0 && (
+              <div className="flex items-start gap-3 bg-danger/8 border border-danger/20 rounded-xl px-4 py-4">
+                <AlertCircle className="w-5 h-5 text-danger shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm text-danger font-medium">Votre solde est épuisé</p>
+                  <p className="text-xs text-danger/70 mt-0.5">Rechargez vos crédits pour pouvoir envoyer des SMS.</p>
+                  <Link href="/recharge" className="inline-flex items-center gap-1.5 mt-2 text-xs text-danger font-semibold hover:text-danger/80 transition-colors">
+                    <CreditCard className="w-3.5 h-3.5" />Recharger maintenant
+                  </Link>
                 </div>
-                <p className="text-xs text-foreground-subtle">
-                  <Link href="/senders" className="text-primary hover:underline">Créer un sender</Link>{' '}
-                  pour pouvoir envoyer des SMS avec votre nom d&apos;entreprise.
-                </p>
               </div>
             )}
-            {errors.sender && <p className="mt-1.5 text-xs text-danger">⚠ {errors.sender}</p>}
-          </div>
 
-          {/* Source des destinataires */}
-          <div>
-            <label className="label">Destinataires</label>
-            <div className="flex gap-2 mb-3 flex-wrap">
-              {([
-                { value: 'manuel', label: 'Saisie manuelle', icon: PenLine },
-                { value: 'groupe', label: 'Depuis un groupe', icon: Users },
-                { value: 'fichier', label: 'Importer CSV/XLSX', icon: Upload },
-              ] as const).map(({ value, label: lbl, icon: Icon }) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => { setSource(value); setGroupId(''); setPhoneNumbers([]); setPhoneInputValue(''); removeFichier() }}
-                  className={cn(
-                    'flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all',
-                    source === value
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border text-foreground-muted hover:border-primary/40'
-                  )}
-                >
-                  <Icon className="w-4 h-4" />{lbl}
-                </button>
+            {/* Indicateur d'étape */}
+            <div className="flex items-center gap-3">
+              {[{ n: 1, label: 'Configuration' }, { n: 2, label: 'Confirmation' }].map(({ n, label: lbl }, i) => (
+                <div key={n} className="flex items-center gap-2">
+                  <div className={cn(
+                    'w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors',
+                    step === n ? 'bg-primary text-background' : step > n ? 'bg-secondary text-background' : 'bg-border text-foreground-muted'
+                  )}>
+                    {step > n ? '✓' : n}
+                  </div>
+                  <span className={cn('text-xs font-medium', step === n ? 'text-foreground' : 'text-foreground-muted')}>{lbl}</span>
+                  {i < 1 && <div className="w-8 h-px bg-border" />}
+                </div>
               ))}
             </div>
 
-            {/* Saisie manuelle — tag input */}
-            {source === 'manuel' && (
-              <div className="space-y-2">
-                <div
-                  className={cn(
-                    'input min-h-[80px] flex flex-wrap gap-2 p-2 cursor-text',
-                    errors.contacts && 'border-danger'
-                  )}
-                  onClick={() => document.getElementById('phone-tag-input')?.focus()}
-                >
-                  {phoneNumbers.map((phone, i) => (
-                    <span
-                      key={i}
-                      className="inline-flex items-center gap-1.5 bg-primary/15 text-primary text-sm font-mono px-2.5 py-1 rounded-lg shrink-0"
-                    >
-                      {phone}
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); removePhoneTag(i) }}
-                        className="hover:text-danger transition-colors"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </span>
-                  ))}
-                  <input
-                    id="phone-tag-input"
-                    type="text"
-                    value={phoneInputValue}
-                    onChange={(e) => {
-                      const val = e.target.value
-                      if (val.endsWith(';')) {
-                        addPhoneTag(val.slice(0, -1))
-                      } else {
-                        setPhoneInputValue(val)
-                      }
-                    }}
-                    onKeyDown={handlePhoneKeyDown}
-                    onBlur={() => { if (phoneInputValue.trim()) addPhoneTag(phoneInputValue) }}
-                    placeholder={phoneNumbers.length === 0 ? '+2250707000001 — Entrée ou ; pour valider' : ''}
-                    className="flex-1 min-w-[220px] bg-transparent outline-none text-sm font-mono placeholder:text-foreground-subtle py-1"
-                  />
-                </div>
-                <p className="text-xs text-foreground-subtle">
-                  Tapez un numéro avec indicatif (+225…) puis appuyez sur <kbd className="bg-border px-1 py-0.5 rounded text-[11px]">Entrée</kbd> ou <kbd className="bg-border px-1 py-0.5 rounded text-[11px]">;</kbd> pour l&apos;ajouter.
-                </p>
-                {phoneNumbers.length > 0 && (
-                  <p className="text-xs text-secondary font-medium">
-                    ✓ {phoneNumbers.length} numéro{phoneNumbers.length > 1 ? 's' : ''} ajouté{phoneNumbers.length > 1 ? 's' : ''}
-                  </p>
-                )}
-              </div>
-            )}
+            {/* Formulaire */}
+            <div className="bg-surface border border-border rounded-2xl p-6 space-y-5">
 
-            {/* Depuis un groupe */}
-            {source === 'groupe' && (
+              {/* Nom de l'envoi */}
               <div>
-                {contactLists.length > 0 ? (
+                <label className="label">
+                  Nom de l&apos;envoi{' '}
+                  <span className="text-foreground-subtle font-normal">(optionnel pour un seul destinataire)</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ex: Promo Tabaski 2026, Relance clients inactifs, Rappel RDV médical…"
+                  value={label}
+                  onChange={(e) => setLabel(e.target.value)}
+                  className={cn('input', errors.label && 'border-danger')}
+                />
+                {errors.label && <p className="mt-1.5 text-xs text-danger">⚠ {errors.label}</p>}
+              </div>
+
+              {/* Expéditeur */}
+              <div>
+                <label className="label">Expéditeur (Sender ID)</label>
+                {senders.length > 0 ? (
                   <div className="relative">
                     <select
-                      value={groupId}
-                      onChange={(e) => setGroupId(e.target.value)}
-                      className={cn('input appearance-none pr-9', errors.contacts && 'border-danger')}
+                      value={senderNom}
+                      onChange={(e) => setSenderNom(e.target.value)}
+                      className={cn('input appearance-none pr-9', errors.sender && 'border-danger')}
                     >
-                      <option value="">-- Sélectionner un groupe --</option>
-                      {contactLists.map((l) => (
-                        <option key={l.id} value={l.id}>
-                          {l.nom} ({l._count.contacts} contact{l._count.contacts > 1 ? 's' : ''})
-                        </option>
-                      ))}
+                      <option value="">-- Sélectionner un expéditeur --</option>
+                      {senders.map((s) => {
+                        const typeLabel = s.type_message === 'MARKETING' ? 'Marketing'
+                          : s.type_message === 'OTP' ? 'OTP'
+                          : s.type_message === 'TRANSACTIONAL' ? 'Transactionnel'
+                          : null
+                        return (
+                          <option key={s.id} value={s.nom}>
+                            {s.nom}{typeLabel ? ` (${typeLabel})` : ''}
+                          </option>
+                        )
+                      })}
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-subtle pointer-events-none" />
                   </div>
                 ) : (
                   <div className="space-y-2">
                     <div className="input bg-border/30 text-foreground-subtle text-sm flex items-center gap-2">
-                      <Users className="w-4 h-4 shrink-0" />Aucun groupe créé
+                      <AlertCircle className="w-4 h-4 text-warning shrink-0" />
+                      Aucun sender validé pour le moment
                     </div>
                     <p className="text-xs text-foreground-subtle">
-                      <Link href="/contacts" className="text-primary hover:underline">Créer un groupe</Link>{' '}
-                      dans la section Contacts.
+                      <Link href="/senders" className="text-primary hover:underline">Créer un sender</Link>{' '}
+                      pour pouvoir envoyer des SMS avec votre nom d&apos;entreprise.
                     </p>
                   </div>
                 )}
-                {selectedGroup && (
-                  <p className="mt-2 text-xs text-secondary font-medium">
-                    ✓ {selectedGroup._count.contacts} destinataire{selectedGroup._count.contacts > 1 ? 's' : ''}
-                  </p>
-                )}
+                {errors.sender && <p className="mt-1.5 text-xs text-danger">⚠ {errors.sender}</p>}
               </div>
-            )}
 
-            {/* Import CSV/XLSX */}
-            {source === 'fichier' && (
-              <div className="space-y-3">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".csv,.xlsx,.xls"
-                  className="hidden"
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) parseFile(f) }}
-                />
+              {/* Destinataires */}
+              <div>
+                <label className="label">Destinataires</label>
+                <div className="flex gap-2 mb-3 flex-wrap">
+                  {([
+                    { value: 'manuel', label: 'Saisie manuelle', icon: PenLine },
+                    { value: 'groupe', label: 'Depuis un groupe', icon: Users },
+                    { value: 'fichier', label: 'Importer CSV/XLSX', icon: Upload },
+                  ] as const).map(({ value, label: lbl, icon: Icon }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => { setSource(value); setGroupId(''); setPhoneNumbers([]); setPhoneInputValue(''); removeFichier() }}
+                      className={cn(
+                        'flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all',
+                        source === value
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-border text-foreground-muted hover:border-primary/40'
+                      )}
+                    >
+                      <Icon className="w-4 h-4" />{lbl}
+                    </button>
+                  ))}
+                </div>
 
-                {/* Zone de dépôt — toujours visible */}
-                {fichierContacts.length === 0 && (
-                  <div
-                    onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) parseFile(f) }}
-                    onDragOver={(e) => e.preventDefault()}
-                    onClick={() => fileInputRef.current?.click()}
-                    className={cn(
-                      'border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors',
-                      errors.contacts ? 'border-danger/40 hover:border-danger/60' : 'border-border hover:border-primary/40'
+                {/* Saisie manuelle — tag input */}
+                {source === 'manuel' && (
+                  <div className="space-y-2">
+                    <div
+                      className={cn('input min-h-[80px] flex flex-wrap gap-2 p-2 cursor-text', errors.contacts && 'border-danger')}
+                      onClick={() => document.getElementById('phone-tag-input')?.focus()}
+                    >
+                      {phoneNumbers.map((phone, i) => (
+                        <span key={i} className="inline-flex items-center gap-1.5 bg-primary/15 text-primary text-sm font-mono px-2.5 py-1 rounded-lg shrink-0">
+                          {phone}
+                          <button type="button" onClick={(e) => { e.stopPropagation(); removePhoneTag(i) }} className="hover:text-danger transition-colors">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </span>
+                      ))}
+                      <input
+                        id="phone-tag-input"
+                        type="text"
+                        value={phoneInputValue}
+                        onChange={(e) => {
+                          const val = e.target.value
+                          if (val.endsWith(';')) { addPhoneTag(val.slice(0, -1)) } else { setPhoneInputValue(val) }
+                        }}
+                        onKeyDown={handlePhoneKeyDown}
+                        onBlur={() => { if (phoneInputValue.trim()) addPhoneTag(phoneInputValue) }}
+                        placeholder={phoneNumbers.length === 0 ? '+2250707000001 — Entrée ou ; pour valider' : ''}
+                        className="flex-1 min-w-[220px] bg-transparent outline-none text-sm font-mono placeholder:text-foreground-subtle py-1"
+                      />
+                    </div>
+                    <p className="text-xs text-foreground-subtle">
+                      Tapez un numéro avec indicatif (+225…) puis appuyez sur <kbd className="bg-border px-1 py-0.5 rounded text-[11px]">Entrée</kbd> ou <kbd className="bg-border px-1 py-0.5 rounded text-[11px]">;</kbd> pour l&apos;ajouter.
+                    </p>
+                    {phoneNumbers.length > 0 && (
+                      <p className="text-xs text-secondary font-medium">
+                        ✓ {phoneNumbers.length} numéro{phoneNumbers.length > 1 ? 's' : ''} ajouté{phoneNumbers.length > 1 ? 's' : ''}
+                      </p>
                     )}
-                  >
-                    <Upload className="w-8 h-8 text-foreground-subtle mx-auto mb-3" />
-                    <p className="text-sm text-foreground-muted font-medium">
-                      Glissez votre fichier ici ou{' '}
-                      <span className="text-primary">cliquez pour sélectionner</span>
-                    </p>
-                    <p className="text-xs text-foreground-subtle mt-1">
-                      CSV ou Excel (.xlsx) · Colonne obligatoire : <code className="bg-border px-1 rounded">phone</code> (avec indicatif, ex: +22507…)
-                    </p>
                   </div>
                 )}
 
-                {/* Stats après import */}
-                {importStats && (
-                  <div className="border border-border rounded-xl overflow-hidden">
-                    {/* Fichier + bouton remplacer */}
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface">
-                      <div className="flex items-center gap-2.5">
-                        <FileSpreadsheet className="w-4 h-4 text-secondary shrink-0" />
-                        <span className="text-sm font-medium text-foreground truncate max-w-[200px]">{fichierNom}</span>
+                {/* Depuis un groupe */}
+                {source === 'groupe' && (
+                  <div>
+                    {contactLists.length > 0 ? (
+                      <div className="relative">
+                        <select value={groupId} onChange={(e) => setGroupId(e.target.value)} className={cn('input appearance-none pr-9', errors.contacts && 'border-danger')}>
+                          <option value="">-- Sélectionner un groupe --</option>
+                          {contactLists.map((l) => (
+                            <option key={l.id} value={l.id}>{l.nom} ({l._count.contacts} contact{l._count.contacts > 1 ? 's' : ''})</option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-subtle pointer-events-none" />
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          className="flex items-center gap-1.5 text-xs text-foreground-muted hover:text-primary transition-colors px-2 py-1 rounded-lg hover:bg-primary/10"
-                          title="Importer un autre fichier"
-                        >
-                          <Upload className="w-3.5 h-3.5" />
-                          Remplacer
-                        </button>
-                        <button onClick={removeFichier} className="text-foreground-subtle hover:text-danger transition-colors p-1">
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Compteurs */}
-                    <div className="px-4 py-3 space-y-2">
-                      <p className="text-xs font-semibold text-foreground-subtle uppercase tracking-wider">Nombre de contacts</p>
-                      <p className="text-2xl font-bold text-foreground">{importStats.total}</p>
-                      <div className="flex items-center gap-5 pt-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-secondary inline-block" />
-                          <span className="text-xs text-foreground-muted">Valides</span>
-                          <span className="text-sm font-bold text-secondary">{importStats.valid}</span>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="input bg-border/30 text-foreground-subtle text-sm flex items-center gap-2">
+                          <Users className="w-4 h-4 shrink-0" />Aucun groupe créé
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-danger inline-block" />
-                          <span className="text-xs text-foreground-muted">Invalides</span>
-                          <span className="text-sm font-bold text-danger">{importStats.invalid}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-foreground-subtle inline-block" />
-                          <span className="text-xs text-foreground-muted">Doublons</span>
-                          <span className="text-sm font-bold text-foreground-muted">{importStats.duplicates}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Info contacts invalides */}
-                    {importStats.invalid > 0 && (
-                      <div className="border-t border-border px-4 py-3 bg-danger/5">
-                        <p className="text-xs font-semibold text-danger mb-1">ⓘ Contacts invalides</p>
-                        <p className="text-xs text-foreground-muted leading-relaxed">
-                          Les contacts invalides ne respectent pas le format international de numéro de téléphone (ex: +22507XXXXXXXX). Corrigez la colonne <code className="bg-border px-1 rounded">phone</code> de votre fichier et réimportez.
+                        <p className="text-xs text-foreground-subtle">
+                          <Link href="/contacts" className="text-primary hover:underline">Créer un groupe</Link>{' '}dans la section Contacts.
                         </p>
                       </div>
                     )}
+                    {selectedGroup && (
+                      <p className="mt-2 text-xs text-secondary font-medium">
+                        ✓ {selectedGroup._count.contacts} destinataire{selectedGroup._count.contacts > 1 ? 's' : ''}
+                      </p>
+                    )}
                   </div>
                 )}
 
-                {/* Section Champs personnalisés */}
-                <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-3">
-                  <p className="text-xs font-semibold text-primary mb-1.5">ⓘ Champs personnalisés</p>
-                  <p className="text-xs text-foreground-muted leading-relaxed mb-2">
-                    Personnalisez chaque SMS avec les données de votre fichier. Ajoutez des colonnes <code className="bg-border px-1 rounded">nom</code>, <code className="bg-border px-1 rounded">prenom</code> dans votre CSV et utilisez les balises dans le message :
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {CHAMPS_DYNAMIQUES.map((tag) => (
-                      <button
-                        key={tag}
-                        type="button"
-                        onClick={() => insertDynamic(tag)}
-                        className="text-xs bg-primary/10 text-primary hover:bg-primary/20 px-2 py-1 rounded-lg transition-colors font-mono"
+                {/* Import CSV/XLSX */}
+                {source === 'fichier' && (
+                  <div className="space-y-3">
+                    <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) parseFile(f) }} />
+
+                    {fichierContacts.length === 0 && (
+                      <div
+                        onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) parseFile(f) }}
+                        onDragOver={(e) => e.preventDefault()}
+                        onClick={() => fileInputRef.current?.click()}
+                        className={cn('border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors',
+                          errors.contacts ? 'border-danger/40 hover:border-danger/60' : 'border-border hover:border-primary/40')}
                       >
-                        {tag} →  insérer
-                      </button>
-                    ))}
+                        <Upload className="w-8 h-8 text-foreground-subtle mx-auto mb-3" />
+                        <p className="text-sm text-foreground-muted font-medium">
+                          Glissez votre fichier ici ou <span className="text-primary">cliquez pour sélectionner</span>
+                        </p>
+                        <p className="text-xs text-foreground-subtle mt-1">
+                          CSV ou Excel (.xlsx) · Colonne obligatoire : <code className="bg-border px-1 rounded">phone</code> (avec indicatif, ex: +22507…)
+                        </p>
+                      </div>
+                    )}
+
+                    {importStats && (
+                      <div className="border border-border rounded-xl overflow-hidden">
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface">
+                          <div className="flex items-center gap-2.5">
+                            <FileSpreadsheet className="w-4 h-4 text-secondary shrink-0" />
+                            <span className="text-sm font-medium text-foreground truncate max-w-[200px]">{fichierNom}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button type="button" onClick={() => fileInputRef.current?.click()}
+                              className="flex items-center gap-1.5 text-xs text-foreground-muted hover:text-primary transition-colors px-2 py-1 rounded-lg hover:bg-primary/10">
+                              <Upload className="w-3.5 h-3.5" />Remplacer
+                            </button>
+                            <button onClick={removeFichier} className="text-foreground-subtle hover:text-danger transition-colors p-1">
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="px-4 py-3 space-y-2">
+                          <p className="text-xs font-semibold text-foreground-subtle uppercase tracking-wider">Nombre de contacts</p>
+                          <p className="text-2xl font-bold text-foreground">{importStats.total}</p>
+                          <div className="flex items-center gap-5 pt-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-secondary inline-block" />
+                              <span className="text-xs text-foreground-muted">Valides</span>
+                              <span className="text-sm font-bold text-secondary">{importStats.valid}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-danger inline-block" />
+                              <span className="text-xs text-foreground-muted">Invalides</span>
+                              <span className="text-sm font-bold text-danger">{importStats.invalid}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-foreground-subtle inline-block" />
+                              <span className="text-xs text-foreground-muted">Doublons</span>
+                              <span className="text-sm font-bold text-foreground-muted">{importStats.duplicates}</span>
+                            </div>
+                          </div>
+                        </div>
+                        {importStats.invalid > 0 && (
+                          <div className="border-t border-border px-4 py-3 bg-danger/5">
+                            <p className="text-xs font-semibold text-danger mb-1">ⓘ Contacts invalides</p>
+                            <p className="text-xs text-foreground-muted leading-relaxed">
+                              Les contacts invalides ne respectent pas le format international (+22507XXXXXXXX). Corrigez la colonne <code className="bg-border px-1 rounded">phone</code> et réimportez.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-3">
+                      <p className="text-xs font-semibold text-primary mb-1.5">ⓘ Champs personnalisés</p>
+                      <p className="text-xs text-foreground-muted leading-relaxed mb-2">
+                        Ajoutez des colonnes <code className="bg-border px-1 rounded">nom</code>, <code className="bg-border px-1 rounded">prenom</code> dans votre CSV et utilisez les balises dans le message :
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {CHAMPS_DYNAMIQUES.map((tag) => (
+                          <button key={tag} type="button" onClick={() => insertDynamic(tag)}
+                            className="text-xs bg-primary/10 text-primary hover:bg-primary/20 px-2 py-1 rounded-lg transition-colors font-mono">
+                            {tag} → insérer
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-xs text-foreground-subtle mt-2">
+                        Ex : <em className="text-foreground-muted">«&nbsp;Bonjour &#123;prenom&#125;, votre commande est prête&nbsp;»</em>
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-xs text-foreground-subtle mt-2">
-                    Exemple : <em className="text-foreground-muted">«&nbsp;Bonjour &#123;prenom&#125;, votre commande est prête&nbsp;»</em> → chaque destinataire reçoit son propre prénom.
+                )}
+
+                {errors.contacts && <p className="mt-1.5 text-xs text-danger">⚠ {errors.contacts}</p>}
+              </div>
+
+              {/* Message */}
+              <div>
+                <label className="label">Message</label>
+                <div className="relative">
+                  <textarea
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    placeholder={source === 'fichier'
+                      ? "Ex: Bonjour {prenom}, votre commande N°{ref} est prête ! Récupérez-la avant 18h."
+                      : "Ex: Cher client, bénéficiez de -30% sur tous nos articles jusqu'au 31 juillet. Répondez STOP pour vous désabonner."}
+                    rows={5}
+                    maxLength={918}
+                    className={cn('input resize-none', errors.content && 'border-danger')}
+                  />
+                  <div className="absolute bottom-3 right-3 flex items-center gap-2">
+                    <span className={cn('text-xs font-mono', charsRemaining < 20 ? 'text-warning' : 'text-foreground-subtle')}>
+                      {content.length}/{partCount <= 1 ? '160' : `${partCount * 153}`}
+                    </span>
+                    <span className="text-xs bg-border text-foreground-muted px-1.5 py-0.5 rounded font-medium">
+                      {partCount} SMS{nbContacts > 1 ? '/contact' : ''}
+                    </span>
+                  </div>
+                </div>
+                {errors.content && <p className="mt-1.5 text-xs text-danger">⚠ {errors.content}</p>}
+                {content.length > 160 && (
+                  <p className="mt-1.5 text-xs text-warning">
+                    Message long : découpé en {partCount} SMS ({partCount} crédit{partCount > 1 ? 's' : ''} par destinataire)
+                  </p>
+                )}
+              </div>
+
+              {/* Programmation */}
+              <div>
+                <label className="label flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-foreground-subtle" />
+                  Programmation{' '}
+                  <span className="text-foreground-subtle font-normal">(optionnel — envoi immédiat si vide)</span>
+                </label>
+                <input
+                  type="datetime-local"
+                  value={scheduledAt}
+                  onChange={(e) => setScheduledAt(e.target.value)}
+                  min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+                  className={cn('input', errors.scheduledAt && 'border-danger')}
+                />
+                {scheduledAt && !errors.scheduledAt && (
+                  <p className="mt-1.5 text-xs text-secondary font-medium">
+                    Envoi programmé le {new Date(scheduledAt).toLocaleString('fr-FR')}
+                  </p>
+                )}
+                {errors.scheduledAt && <p className="mt-1.5 text-xs text-danger">⚠ {errors.scheduledAt}</p>}
+              </div>
+
+              {errors.solde && (
+                <div className="flex items-start gap-2.5 bg-danger/8 border border-danger/20 rounded-lg px-4 py-3">
+                  <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
+                  <p className="text-sm text-danger">{errors.solde}</p>
+                </div>
+              )}
+
+              <Button onClick={goToStep2} fullWidth size="lg" disabled={soldeSMS === 0}>
+                Continuer →
+              </Button>
+            </div>
+
+            {/* Résultat */}
+            {result && (
+              <div className="flex items-start gap-3 bg-secondary/8 border border-secondary/20 rounded-xl px-4 py-4 animate-slide-up">
+                <CheckCircle2 className="w-5 h-5 text-secondary shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm text-secondary font-semibold">
+                    {result.nb === 1 ? 'SMS envoyé avec succès !' : `${result.nb} SMS envoyés avec succès !`}
+                  </p>
+                  <p className="text-xs text-foreground-muted mt-1">
+                    Solde restant : <span className="font-semibold">{result.solde} SMS</span>
                   </p>
                 </div>
               </div>
             )}
-
-            {errors.contacts && <p className="mt-1.5 text-xs text-danger">⚠ {errors.contacts}</p>}
           </div>
 
-          {/* Message */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="label mb-0">Message</label>
-              <div className="flex items-center gap-1.5">
-                {templates.length > 0 && (
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setShowTemplateLoad(!showTemplateLoad)}
-                      className="flex items-center gap-1 text-xs text-foreground-muted hover:text-primary transition-colors px-2 py-1 rounded-lg hover:bg-primary/10"
-                    >
-                      <FolderOpen className="w-3.5 h-3.5" />Charger
-                    </button>
-                    {showTemplateLoad && (
-                      <div className="absolute right-0 top-8 z-10 bg-surface border border-border rounded-xl shadow-lg p-2 min-w-48 space-y-1">
-                        {templates.map((t) => (
-                          <div key={t.name} className="flex items-center gap-2 group">
-                            <button
-                              type="button"
-                              onClick={() => handleLoadTemplate(t)}
-                              className="flex-1 text-left text-xs text-foreground px-2 py-1.5 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors truncate"
-                            >
-                              {t.name}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteTemplate(t.name)}
-                              className="opacity-0 group-hover:opacity-100 text-foreground-subtle hover:text-danger transition-all"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setShowTemplateSave(!showTemplateSave)}
-                  className="flex items-center gap-1 text-xs text-foreground-muted hover:text-primary transition-colors px-2 py-1 rounded-lg hover:bg-primary/10"
-                >
-                  <BookMarked className="w-3.5 h-3.5" />Enregistrer
-                </button>
+          {/* ======================================================
+              DRAWER — Modèles enregistrés (toujours visible)
+              ====================================================== */}
+          <div className="w-72 shrink-0 sticky top-6 bg-surface border border-border rounded-2xl overflow-hidden flex flex-col" style={{ maxHeight: 'calc(100vh - 48px)' }}>
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3.5 border-b border-border">
+              <div>
+                <h3 className="font-syne font-semibold text-sm text-foreground">Modèles enregistrés</h3>
+                <p className="text-xs text-foreground-subtle mt-0.5">Sender + message pré-remplis</p>
               </div>
+              {templates.length > 0 && (
+                <span className="text-xs bg-primary/15 text-primary font-bold px-2 py-0.5 rounded-full">
+                  {templates.length}
+                </span>
+              )}
             </div>
 
-            {showTemplateSave && (
-              <div className="flex gap-2 mb-2 animate-slide-up">
+            {/* Liste des modèles — scrollable */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-0">
+              {templates.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <BookMarked className="w-8 h-8 text-foreground-subtle mb-3 opacity-40" />
+                  <p className="text-xs text-foreground-subtle">Aucun modèle enregistré</p>
+                  <p className="text-xs text-foreground-subtle mt-1 opacity-70">Rédigez un message et sauvegardez-le ci-dessous</p>
+                </div>
+              ) : (
+                templates.map((t) => {
+                  const tplTypeLabel = (() => {
+                    const s = senders.find((s) => s.nom === t.senderNom)
+                    if (!s?.type_message) return null
+                    return s.type_message === 'MARKETING' ? 'Marketing'
+                      : s.type_message === 'OTP' ? 'OTP'
+                      : s.type_message === 'TRANSACTIONAL' ? 'Transactionnel'
+                      : null
+                  })()
+                  return (
+                    <div key={t.name} className="bg-background/60 border border-border rounded-xl p-3 hover:border-primary/40 transition-colors">
+                      <p className="text-xs font-bold text-foreground mb-1.5">{t.name}</p>
+                      {t.senderNom && (
+                        <span className={cn(
+                          'inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded mb-2',
+                          tplTypeLabel === 'Marketing' ? 'bg-primary/15 text-primary'
+                            : tplTypeLabel === 'OTP' ? 'bg-secondary/15 text-secondary'
+                            : tplTypeLabel === 'Transactionnel' ? 'bg-warning/15 text-warning'
+                            : 'bg-border text-foreground-muted'
+                        )}>
+                          {t.senderNom}{tplTypeLabel ? ` · ${tplTypeLabel}` : ''}
+                        </span>
+                      )}
+                      <p className="text-[11px] text-foreground-subtle leading-relaxed line-clamp-2 mb-2.5">
+                        {t.content}
+                      </p>
+                      <div className="flex gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleLoadTemplate(t)}
+                          className="flex-1 bg-primary text-background text-[11px] font-bold py-1.5 rounded-lg hover:bg-primary/90 transition-colors"
+                        >
+                          Charger
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTemplate(t.name)}
+                          className="border border-border text-foreground-subtle hover:text-danger hover:border-danger/40 text-[11px] px-2.5 py-1.5 rounded-lg transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+
+            {/* Footer — Enregistrer le modèle actuel */}
+            <div className="border-t border-border p-3 space-y-2">
+              <p className="text-[11px] text-foreground-subtle">Enregistrer le message actuel :</p>
+              {senderNom && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-foreground-subtle">Sender :</span>
+                  <span className={cn(
+                    'text-[10px] font-semibold px-1.5 py-0.5 rounded',
+                    senderTypeLabel === 'Marketing' ? 'bg-primary/15 text-primary'
+                      : senderTypeLabel === 'OTP' ? 'bg-secondary/15 text-secondary'
+                      : senderTypeLabel === 'Transactionnel' ? 'bg-warning/15 text-warning'
+                      : 'bg-border text-foreground-muted'
+                  )}>
+                    {senderNom}{senderTypeLabel ? ` (${senderTypeLabel})` : ''}
+                  </span>
+                </div>
+              )}
+              <div className="flex gap-1.5">
                 <input
                   type="text"
-                  placeholder="Nom du modèle (ex: Promo été)"
-                  value={templateName}
-                  onChange={(e) => setTemplateName(e.target.value)}
+                  placeholder="Nom du modèle…"
+                  value={drawerSaveName}
+                  onChange={(e) => setDrawerSaveName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSaveTemplate()}
-                  className="input flex-1 text-sm py-1.5"
+                  className="input flex-1 text-xs py-2"
                 />
-                <Button type="button" size="sm" onClick={handleSaveTemplate} leftIcon={<Save className="w-3.5 h-3.5" />}>OK</Button>
-                <Button type="button" size="sm" variant="secondary" onClick={() => setShowTemplateSave(false)}><X className="w-3.5 h-3.5" /></Button>
+                <button
+                  type="button"
+                  onClick={handleSaveTemplate}
+                  className="bg-secondary text-background text-[11px] font-bold px-3 py-2 rounded-lg hover:bg-secondary/90 transition-colors shrink-0"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                </button>
               </div>
-            )}
-
-            <div className="relative">
-              <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder={source === 'fichier'
-                  ? "Ex: Bonjour {prenom}, votre commande N°{ref} est prête ! Récupérez-la avant 18h."
-                  : "Ex: Cher client, bénéficiez de -30% sur tous nos articles jusqu'au 31 juillet. Répondez STOP pour vous désabonner."}
-                rows={5}
-                maxLength={918}
-                className={cn('input resize-none', errors.content && 'border-danger')}
-              />
-              <div className="absolute bottom-3 right-3 flex items-center gap-2">
-                <span className={cn('text-xs font-mono', charsRemaining < 20 ? 'text-warning' : 'text-foreground-subtle')}>
-                  {content.length}/{partCount <= 1 ? '160' : `${partCount * 153}`}
-                </span>
-                <span className="text-xs bg-border text-foreground-muted px-1.5 py-0.5 rounded font-medium">
-                  {partCount} SMS{nbContacts > 1 ? '/contact' : ''}
-                </span>
-              </div>
+              <p className="text-[10px] text-foreground-subtle opacity-60">Sender + message seront sauvegardés</p>
             </div>
-            {errors.content && <p className="mt-1.5 text-xs text-danger">⚠ {errors.content}</p>}
-            {content.length > 160 && (
-              <p className="mt-1.5 text-xs text-warning">
-                Message long : découpé en {partCount} SMS ({partCount} crédit{partCount > 1 ? 's' : ''} par destinataire)
-              </p>
-            )}
           </div>
 
-          {/* Programmation */}
-          <div>
-            <label className="label flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-foreground-subtle" />
-              Programmation{' '}
-              <span className="text-foreground-subtle font-normal">(optionnel — envoi immédiat si vide)</span>
-            </label>
-            <input
-              type="datetime-local"
-              value={scheduledAt}
-              onChange={(e) => setScheduledAt(e.target.value)}
-              min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
-              className={cn('input', errors.scheduledAt && 'border-danger')}
-            />
-            {scheduledAt && !errors.scheduledAt && (
-              <p className="mt-1.5 text-xs text-secondary font-medium">
-                Envoi programmé le {new Date(scheduledAt).toLocaleString('fr-FR')}
-              </p>
-            )}
-            {errors.scheduledAt && <p className="mt-1.5 text-xs text-danger">⚠ {errors.scheduledAt}</p>}
-          </div>
-
-          {errors.solde && (
-            <div className="flex items-start gap-2.5 bg-danger/8 border border-danger/20 rounded-lg px-4 py-3">
-              <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
-              <p className="text-sm text-danger">{errors.solde}</p>
-            </div>
-          )}
-
-          <Button onClick={goToStep2} fullWidth size="lg" disabled={soldeSMS === 0}>
-            Continuer →
-          </Button>
         </div>
       )}
 
@@ -841,27 +878,37 @@ export default function SMSPage() {
           ÉTAPE 2 — Confirmation
           ====================================================== */}
       {step === 2 && (
-        <div className="space-y-4 animate-slide-up">
+        <div className="max-w-4xl mx-auto space-y-5 animate-slide-up">
+
+          {/* Indicateur d'étape */}
+          <div className="flex items-center gap-3">
+            {[{ n: 1, label: 'Configuration' }, { n: 2, label: 'Confirmation' }].map(({ n, label: lbl }, i) => (
+              <div key={n} className="flex items-center gap-2">
+                <div className={cn(
+                  'w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors',
+                  step === n ? 'bg-primary text-background' : step > n ? 'bg-secondary text-background' : 'bg-border text-foreground-muted'
+                )}>
+                  {step > n ? '✓' : n}
+                </div>
+                <span className={cn('text-xs font-medium', step === n ? 'text-foreground' : 'text-foreground-muted')}>{lbl}</span>
+                {i < 1 && <div className="w-8 h-px bg-border" />}
+              </div>
+            ))}
+          </div>
+
           <div className="bg-surface border border-border rounded-2xl overflow-hidden">
-            {/* Header */}
             <div className="px-6 py-4 border-b border-border text-right">
               <h3 className="font-syne font-semibold text-base text-foreground">Récapitulatif de l&apos;envoi</h3>
               <p className="text-xs text-foreground-muted mt-0.5">Vérifiez les informations avant de confirmer</p>
             </div>
 
-            {/* Body : phone mockup + summary */}
             <div className="flex flex-col sm:flex-row gap-0">
-
-              {/* ---- Phone mockup ---- */}
+              {/* Phone mockup */}
               <div className="sm:w-[400px] shrink-0 flex items-center justify-center bg-background/60 border-b sm:border-b-0 sm:border-r border-border py-6 px-6">
                 <div className="relative w-full max-w-[320px]">
-                  {/* Phone shell */}
                   <div className="relative bg-[#1a1a2e] rounded-[2.5rem] border-[5px] border-[#2a2a4a] shadow-2xl pt-10 pb-6 px-5">
-                    {/* Notch */}
                     <div className="absolute top-3 left-1/2 -translate-x-1/2 w-20 h-2.5 bg-[#2a2a4a] rounded-full" />
-                    {/* Screen */}
                     <div className="bg-[#f0f0f5] rounded-2xl overflow-hidden min-h-[280px] flex flex-col">
-                      {/* SMS header */}
                       <div className="bg-[#e8e8ef] px-4 py-3 flex items-center gap-3 border-b border-[#d8d8e8]">
                         <div className="w-10 h-10 rounded-full bg-primary/80 flex items-center justify-center shrink-0">
                           <span className="text-[14px] font-bold text-white">{senderNom.charAt(0).toUpperCase()}</span>
@@ -871,7 +918,6 @@ export default function SMSPage() {
                           <p className="text-[11px] text-[#888] mt-0.5">SMS</p>
                         </div>
                       </div>
-                      {/* Message bubble */}
                       <div className="flex-1 p-4 flex flex-col gap-2">
                         <div className="bg-[#e2fce7] rounded-2xl rounded-tl-none px-4 py-3 max-w-[95%] shadow-sm">
                           <p className="text-[13px] leading-[1.6] text-[#1a1a1a] break-words whitespace-pre-wrap">
@@ -883,13 +929,12 @@ export default function SMSPage() {
                         </div>
                       </div>
                     </div>
-                    {/* Home bar */}
                     <div className="mt-5 mx-auto w-16 h-1.5 bg-[#2a2a4a] rounded-full" />
                   </div>
                 </div>
               </div>
 
-              {/* ---- Summary ---- */}
+              {/* Summary */}
               <div className="flex-1 px-6 py-5 space-y-0 divide-y divide-border">
                 {label && (
                   <div className="flex items-center justify-between py-2.5">
@@ -959,34 +1004,13 @@ export default function SMSPage() {
 
           <div className="flex gap-3">
             <Button variant="secondary" onClick={() => setStep(1)} className="flex-1" size="lg">Modifier</Button>
-            <Button
-              onClick={handleSubmit}
-              loading={loading}
-              disabled={soldeSMS < coutTotal}
-              className="flex-1"
-              size="lg"
-              leftIcon={<Send className="w-4 h-4" />}
-            >
-              {scheduledAt ? 'Programmer l\'envoi' : nbContacts === 1 ? 'Envoyer le SMS' : `Envoyer à ${nbContacts} contacts`}
+            <Button onClick={handleSubmit} loading={loading} disabled={soldeSMS < coutTotal} className="flex-1" size="lg" leftIcon={<Send className="w-4 h-4" />}>
+              {scheduledAt ? "Programmer l'envoi" : nbContacts === 1 ? 'Envoyer le SMS' : `Envoyer à ${nbContacts} contacts`}
             </Button>
           </div>
         </div>
       )}
 
-      {/* ---- Résultat ---- */}
-      {result && (
-        <div className="flex items-start gap-3 bg-secondary/8 border border-secondary/20 rounded-xl px-4 py-4 animate-slide-up">
-          <CheckCircle2 className="w-5 h-5 text-secondary shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm text-secondary font-semibold">
-              {result.nb === 1 ? 'SMS envoyé avec succès !' : `${result.nb} SMS envoyés avec succès !`}
-            </p>
-            <p className="text-xs text-foreground-muted mt-1">
-              Solde restant : <span className="font-semibold">{result.solde} SMS</span>
-            </p>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
