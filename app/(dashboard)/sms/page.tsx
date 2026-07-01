@@ -166,10 +166,14 @@ export default function SMSPage() {
     if (!phone.startsWith('+')) {
       if (phone.startsWith('00')) phone = '+' + phone.slice(2)
     }
-    if (phone.startsWith('+') && phone.length >= 10 && !phoneNumbers.includes(phone)) {
-      setPhoneNumbers((prev) => [...prev, phone])
+    // Accepter tout numéro au format international (+ suivi d'au moins 8 chiffres)
+    if (phone.startsWith('+') && phone.length >= 9) {
+      if (!phoneNumbers.includes(phone)) {
+        setPhoneNumbers((prev) => [...prev, phone])
+      }
+      setPhoneInputValue('') // Vider seulement si format valide
     }
-    setPhoneInputValue('')
+    // Sinon conserver ce qui est écrit (ne pas effacer)
   }
 
   const handlePhoneKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -534,7 +538,6 @@ export default function SMSPage() {
                           if (val.endsWith(';')) { addPhoneTag(val.slice(0, -1)) } else { setPhoneInputValue(val) }
                         }}
                         onKeyDown={handlePhoneKeyDown}
-                        onBlur={() => { if (phoneInputValue.trim()) addPhoneTag(phoneInputValue) }}
                         placeholder={phoneNumbers.length === 0 ? '+2250707000001 — Entrée ou ; pour valider' : ''}
                         className="flex-1 min-w-[220px] bg-transparent outline-none text-sm font-mono placeholder:text-foreground-subtle py-1"
                       />

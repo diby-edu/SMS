@@ -183,13 +183,23 @@ export function interpolateMessage(
 // STATUTS
 // ============================================================
 
-/** Retourne le label français d'un statut de message */
+/** Retourne le label français d'un statut (messages, campagnes, transactions) */
 export function getMessageStatusLabel(status: string): string {
   const labels: Record<string, string> = {
+    // Message
     PENDING: 'En attente',
     SENT: 'Envoyé',
     DELIVERED: 'Délivré',
     FAILED: 'Échoué',
+    // Campaign
+    CREATED: 'En attente',
+    PROCESSING: 'En cours',
+    COMPLETED: 'Terminé',
+    // Transaction / Sender
+    APPROVED: 'Approuvé',
+    REJECTED: 'Refusé',
+    SUCCESS: 'Réussi',
+    SENDING: 'En cours',
   }
   return labels[status] || status
 }
@@ -197,15 +207,17 @@ export function getMessageStatusLabel(status: string): string {
 /** Retourne la couleur Tailwind d'un statut */
 export function getStatusColor(status: string): string {
   const colors: Record<string, string> = {
-    PENDING: 'text-warning bg-warning/10',
-    SENT: 'text-primary bg-primary/10',
-    DELIVERED: 'text-secondary bg-secondary/10',
-    FAILED: 'text-danger bg-danger/10',
-    APPROVED: 'text-secondary bg-secondary/10',
-    REJECTED: 'text-danger bg-danger/10',
-    SUCCESS: 'text-secondary bg-secondary/10',
-    CREATED: 'text-primary bg-primary/10',
-    SENDING: 'text-warning bg-warning/10',
+    PENDING:    'text-warning bg-warning/10',
+    CREATED:    'text-warning bg-warning/10',
+    SENT:       'text-primary bg-primary/10',
+    PROCESSING: 'text-primary bg-primary/10',
+    SENDING:    'text-primary bg-primary/10',
+    DELIVERED:  'text-secondary bg-secondary/10',
+    COMPLETED:  'text-secondary bg-secondary/10',
+    APPROVED:   'text-secondary bg-secondary/10',
+    SUCCESS:    'text-secondary bg-secondary/10',
+    FAILED:     'text-danger bg-danger/10',
+    REJECTED:   'text-danger bg-danger/10',
   }
   return colors[status] || 'text-foreground-muted bg-surface'
 }
