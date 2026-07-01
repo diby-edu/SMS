@@ -121,6 +121,7 @@ export async function POST(req: NextRequest) {
             statut: 'SENT',
             letexto_id: response.id,
             cost_sms: partCount,
+            campaign_id: campaign.id,
           },
         })
         return response

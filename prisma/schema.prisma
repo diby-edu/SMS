@@ -150,12 +150,16 @@ model Message {
   cost_sms     Int           @default(1) // Nombre de SMS consommés (1 SMS = 160 chars)
   created_at   DateTime      @default(now())
 
-  user   User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  apiKey ApiKey? @relation(fields: [api_key_id], references: [id], onDelete: SetNull)
+  campaign_id  String?       // Lien vers la campagne parente (si envoi groupé)
+
+  user     User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  apiKey   ApiKey?   @relation(fields: [api_key_id], references: [id], onDelete: SetNull)
+  campaign Campaign? @relation(fields: [campaign_id], references: [id], onDelete: SetNull)
 
   @@index([user_id])
   @@index([api_key_id])
   @@index([letexto_id])
+  @@index([campaign_id])
   @@map("messages")
 }
 
@@ -174,8 +178,9 @@ model Campaign {
   cost_sms    Int            @default(0) // Total SMS débités
   created_at  DateTime       @default(now())
 
-  user   User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  sender Sender? @relation(fields: [sender_id], references: [id], onDelete: SetNull)
+  user     User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  sender   Sender?   @relation(fields: [sender_id], references: [id], onDelete: SetNull)
+  messages Message[]
 
   @@index([user_id])
   @@map("campaigns")

@@ -3,11 +3,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   History,
-  Filter,
   Download,
   ChevronLeft,
   ChevronRight,
-  Search,
   Loader2,
   Eye,
   X,
@@ -110,7 +108,7 @@ export default function HistoriquePage() {
   }, [fetchData])
 
   const updateFilter = (key: keyof typeof filters, value: string | number) => {
-    setFilters((prev) => ({ ...prev, [key]: value, page: 1 }))
+    setFilters((prev) => ({ ...prev, [key]: value, ...(key !== 'page' && { page: 1 }) }))
   }
 
   // ---- Export CSV ----
@@ -151,20 +149,17 @@ export default function HistoriquePage() {
   }
 
   // ---- Télécharger détails d'un item ----
-  const downloadItemCSV = (item: HistoryItem) => {
+  const downloadItemCSV = async (item: HistoryItem) => {
     let csv: string
     const filename = `details-${item.id.slice(0, 8)}-${new Date().toISOString().split('T')[0]}.csv`
 
     if (item.source === 'CAMPAIGN') {
-      const headers = ['Campagne', 'Contacts', 'Livrés', 'Échoués', 'Statut']
-      const row = [
-        `"${item.destinataire.replace(/"/g, '""')}"`,
-        item.nb_contacts ?? 0,
-        item.nb_success ?? 0,
-        item.nb_failed ?? 0,
-        getMessageStatusLabel(item.statut),
-      ]
-      csv = [headers.join(';'), row.join(';')].join('\n')
+      const res = await fetch(`/api/campaigns/${item.id}/messages`)
+      const data = res.ok ? await res.json() : { messages: [] }
+      const msgs: Array<{ destinataire: string; statut: string }> = data.messages ?? []
+      const headers = ['Numéro', 'Statut']
+      const rows = msgs.map((m) => [m.destinataire, getMessageStatusLabel(m.statut)])
+      csv = [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n')
     } else {
       const headers = ['Numéro', 'Statut']
       const row = [item.destinataire, getMessageStatusLabel(item.statut)]
@@ -319,7 +314,9 @@ export default function HistoriquePage() {
                       </span>
                       <div className="flex items-center gap-2">
                         <span className={cn('badge', getStatusColor(item.statut))}>
-                          {getMessageStatusLabel(item.statut)}
+                          {item.source === 'CAMPAIGN' && item.nb_contacts
+                            ? `${item.nb_success ?? 0}/${item.nb_contacts} livrés`
+                            : getMessageStatusLabel(item.statut)}
                         </span>
                         <button
                           onClick={() => setSelectedItem(item)}
@@ -346,7 +343,9 @@ export default function HistoriquePage() {
                       {item.sender}
                     </span>
                     <span className={cn('badge w-fit', getStatusColor(item.statut))}>
-                      {getMessageStatusLabel(item.statut)}
+                      {item.source === 'CAMPAIGN' && item.nb_contacts
+                        ? `${item.nb_success ?? 0}/${item.nb_contacts} livrés`
+                        : getMessageStatusLabel(item.statut)}
                     </span>
                     <span className="text-sm text-foreground-muted text-right">
                       {item.cost_sms}
@@ -418,9 +417,6 @@ export default function HistoriquePage() {
                     <p className="text-xs text-foreground-subtle mt-0.5">Échoués</p>
                   </div>
                 </div>
-                <p className="text-xs text-foreground-subtle italic">
-                  Le suivi individuel par numéro n&apos;est pas disponible pour les campagnes.
-                </p>
               </div>
             ) : (
               <div className="flex items-center justify-between bg-background rounded-lg px-3 py-2.5 border border-border mb-5">
@@ -448,30 +444,57 @@ export default function HistoriquePage() {
 
       {/* ---- Pagination ---- */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-foreground-muted">
-            Page {filters.page} sur {totalPages} · {total} résultat{total > 1 ? 's' : ''}
-          </p>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => updateFilter('page', filters.page - 1)}
-              disabled={filters.page <= 1}
-              leftIcon={<ChevronLeft className="w-3.5 h-3.5" />}
-            >
-              Précédent
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => updateFilter('page', filters.page + 1)}
-              disabled={filters.page >= totalPages}
-              rightIcon={<ChevronRight className="w-3.5 h-3.5" />}
-            >
-              Suivant
-            </Button>
-          </div>
+        <div className="flex items-center justify-center gap-1">
+          <button
+            onClick={() => updateFilter('page', filters.page - 1)}
+            disabled={filters.page <= 1}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-foreground-muted hover:bg-surface hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+
+          {(() => {
+            const pages: (number | '...')[] = []
+            if (totalPages <= 7) {
+              for (let i = 1; i <= totalPages; i++) pages.push(i)
+            } else {
+              pages.push(1)
+              if (filters.page > 3) pages.push('...')
+              for (let i = Math.max(2, filters.page - 1); i <= Math.min(totalPages - 1, filters.page + 1); i++) {
+                pages.push(i)
+              }
+              if (filters.page < totalPages - 2) pages.push('...')
+              pages.push(totalPages)
+            }
+            return pages.map((p, idx) =>
+              p === '...' ? (
+                <span key={`ellipsis-${idx}`} className="w-8 h-8 flex items-center justify-center text-xs text-foreground-subtle">
+                  …
+                </span>
+              ) : (
+                <button
+                  key={p}
+                  onClick={() => updateFilter('page', p)}
+                  className={cn(
+                    'w-8 h-8 flex items-center justify-center rounded-lg text-sm transition-colors',
+                    filters.page === p
+                      ? 'bg-primary text-white font-semibold'
+                      : 'text-foreground-muted hover:bg-surface hover:text-foreground'
+                  )}
+                >
+                  {p}
+                </button>
+              )
+            )
+          })()}
+
+          <button
+            onClick={() => updateFilter('page', filters.page + 1)}
+            disabled={filters.page >= totalPages}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-foreground-muted hover:bg-surface hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
         </div>
       )}
     </div>
