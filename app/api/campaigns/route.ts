@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
     await prisma.campaign.update({
       where: { id: campaign.id },
       data: {
-        statut: nbFailed === nbContacts ? 'FAILED' : 'COMPLETED',
+        statut: nbFailed === nbContacts ? 'FAILED' : 'SENT',
         nb_success: nbSuccess,
         nb_failed: nbFailed,
       },
