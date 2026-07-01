@@ -9,6 +9,8 @@ import {
   ChevronRight,
   Search,
   Loader2,
+  Eye,
+  X,
 } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -33,6 +35,9 @@ interface HistoryItem {
   statut: string
   cost_sms: number
   created_at: string
+  nb_contacts?: number
+  nb_success?: number
+  nb_failed?: number
 }
 
 interface ApiResponse {
@@ -66,6 +71,7 @@ export default function HistoriquePage() {
   const [loading, setLoading] = useState(true)
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
+  const [selectedItem, setSelectedItem] = useState<HistoryItem | null>(null)
 
   const [filters, setFilters] = useState({
     page: 1,
@@ -140,6 +146,36 @@ export default function HistoriquePage() {
     const a = document.createElement('a')
     a.href = url
     a.download = `historique-sms-${new Date().toISOString().split('T')[0]}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  // ---- Télécharger détails d'un item ----
+  const downloadItemCSV = (item: HistoryItem) => {
+    let csv: string
+    const filename = `details-${item.id.slice(0, 8)}-${new Date().toISOString().split('T')[0]}.csv`
+
+    if (item.source === 'CAMPAIGN') {
+      const headers = ['Campagne', 'Contacts', 'Livrés', 'Échoués', 'Statut']
+      const row = [
+        `"${item.destinataire.replace(/"/g, '""')}"`,
+        item.nb_contacts ?? 0,
+        item.nb_success ?? 0,
+        item.nb_failed ?? 0,
+        getMessageStatusLabel(item.statut),
+      ]
+      csv = [headers.join(';'), row.join(';')].join('\n')
+    } else {
+      const headers = ['Numéro', 'Statut']
+      const row = [item.destinataire, getMessageStatusLabel(item.statut)]
+      csv = [headers.join(';'), row.join(';')].join('\n')
+    }
+
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -259,13 +295,13 @@ export default function HistoriquePage() {
         ) : (
           <>
             {/* Header tableau — desktop */}
-            <div className="hidden md:grid grid-cols-[1fr_120px_1fr_2fr_100px_60px] gap-4 px-4 py-3 border-b border-border text-xs text-foreground-subtle font-medium uppercase tracking-wider">
+            <div className="hidden md:grid grid-cols-[1fr_120px_1fr_100px_60px_60px] gap-4 px-4 py-3 border-b border-border text-xs text-foreground-subtle font-medium uppercase tracking-wider">
               <span>Date</span>
               <span>Type</span>
               <span>Expéditeur</span>
-              <span>Destinataire / Message</span>
               <span>Statut</span>
               <span className="text-right">SMS</span>
+              <span className="text-center">Actions</span>
             </div>
 
             {/* Lignes */}
@@ -281,25 +317,25 @@ export default function HistoriquePage() {
                       <span className={cn('badge', sourceBadgeClass(item.source))}>
                         {sourceLabel(item.source)}
                       </span>
-                      <span
-                        className={cn('badge', getStatusColor(item.statut))}
-                      >
-                        {getMessageStatusLabel(item.statut)}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={cn('badge', getStatusColor(item.statut))}>
+                          {getMessageStatusLabel(item.statut)}
+                        </span>
+                        <button
+                          onClick={() => setSelectedItem(item)}
+                          className="w-7 h-7 flex items-center justify-center rounded-lg text-primary hover:bg-primary/10 transition-colors"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
-                    <p className="text-sm text-foreground font-medium">
-                      {item.destinataire}
-                    </p>
-                    <p className="text-xs text-foreground-subtle">
-                      {truncate(item.contenu, 80)}
-                    </p>
                     <p className="text-xs text-foreground-subtle">
                       {formatDate(item.created_at)} · {item.cost_sms} SMS · {item.sender}
                     </p>
                   </div>
 
                   {/* Desktop */}
-                  <div className="hidden md:grid grid-cols-[1fr_120px_1fr_2fr_100px_60px] gap-4 items-center">
+                  <div className="hidden md:grid grid-cols-[1fr_120px_1fr_100px_60px_60px] gap-4 items-center">
                     <span className="text-xs text-foreground-muted">
                       {formatDate(item.created_at)}
                     </span>
@@ -309,22 +345,21 @@ export default function HistoriquePage() {
                     <span className="text-sm text-foreground truncate">
                       {item.sender}
                     </span>
-                    <div className="min-w-0">
-                      <p className="text-sm text-foreground truncate">
-                        {item.destinataire}
-                      </p>
-                      <p className="text-xs text-foreground-subtle truncate mt-0.5">
-                        {truncate(item.contenu, 60)}
-                      </p>
-                    </div>
-                    <span
-                      className={cn('badge w-fit', getStatusColor(item.statut))}
-                    >
+                    <span className={cn('badge w-fit', getStatusColor(item.statut))}>
                       {getMessageStatusLabel(item.statut)}
                     </span>
                     <span className="text-sm text-foreground-muted text-right">
                       {item.cost_sms}
                     </span>
+                    <div className="flex justify-center">
+                      <button
+                        onClick={() => setSelectedItem(item)}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg text-primary hover:bg-primary/10 transition-colors"
+                        title="Voir les détails"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -332,6 +367,84 @@ export default function HistoriquePage() {
           </>
         )}
       </div>
+
+      {/* ---- Modal Détails ---- */}
+      {selectedItem && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={() => setSelectedItem(null)}
+        >
+          <div
+            className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header modal */}
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="font-syne font-bold text-base text-foreground">Détails</h3>
+              <button
+                onClick={() => setSelectedItem(null)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-foreground-muted hover:bg-border transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Contenu du message */}
+            <div className="mb-4">
+              <p className="text-xs text-foreground-subtle font-medium mb-1.5">Contenu du message</p>
+              <div className="bg-background rounded-lg px-3 py-2.5 text-sm text-foreground leading-relaxed border border-border">
+                {selectedItem.contenu}
+              </div>
+            </div>
+
+            {/* Infos spécifiques selon le type */}
+            {selectedItem.source === 'CAMPAIGN' ? (
+              <div className="space-y-3 mb-5">
+                <div>
+                  <p className="text-xs text-foreground-subtle font-medium mb-1">Campagne</p>
+                  <p className="text-sm text-foreground">{selectedItem.destinataire}</p>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-background rounded-lg px-3 py-2 text-center border border-border">
+                    <p className="text-lg font-bold text-foreground">{selectedItem.nb_contacts ?? 0}</p>
+                    <p className="text-xs text-foreground-subtle mt-0.5">Envoyés</p>
+                  </div>
+                  <div className="bg-background rounded-lg px-3 py-2 text-center border border-border">
+                    <p className="text-lg font-bold text-[#10B981]">{selectedItem.nb_success ?? 0}</p>
+                    <p className="text-xs text-foreground-subtle mt-0.5">Livrés</p>
+                  </div>
+                  <div className="bg-background rounded-lg px-3 py-2 text-center border border-border">
+                    <p className="text-lg font-bold text-danger">{selectedItem.nb_failed ?? 0}</p>
+                    <p className="text-xs text-foreground-subtle mt-0.5">Échoués</p>
+                  </div>
+                </div>
+                <p className="text-xs text-foreground-subtle italic">
+                  Le suivi individuel par numéro n&apos;est pas disponible pour les campagnes.
+                </p>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between bg-background rounded-lg px-3 py-2.5 border border-border mb-5">
+                <div>
+                  <p className="text-xs text-foreground-subtle font-medium mb-0.5">Destinataire</p>
+                  <p className="text-sm text-foreground font-mono">{selectedItem.destinataire}</p>
+                </div>
+                <span className={cn('badge', getStatusColor(selectedItem.statut))}>
+                  {getMessageStatusLabel(selectedItem.statut)}
+                </span>
+              </div>
+            )}
+
+            {/* Bouton download */}
+            <button
+              onClick={() => downloadItemCSV(selectedItem)}
+              className="w-full flex items-center justify-center gap-2 bg-primary/10 text-primary hover:bg-primary/15 transition-colors rounded-xl px-4 py-2.5 text-sm font-medium"
+            >
+              <Download className="w-4 h-4" />
+              Télécharger CSV
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ---- Pagination ---- */}
       {totalPages > 1 && (

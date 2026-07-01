@@ -101,18 +101,10 @@ export function formatRelativeDate(date: Date | string): string {
 // ============================================================
 
 /**
- * Préfixes internationaux acceptés (Afrique de l'Ouest)
- * Format : { code pays ISO : [préfixes d'opérateurs] }
+ * Préfixes téléphoniques (Côte d'Ivoire)
  */
 export const COUNTRY_PHONE_PREFIXES: Record<string, { prefix: string; name: string }> = {
   CI: { prefix: '+225', name: 'Côte d\'Ivoire' },
-  SN: { prefix: '+221', name: 'Sénégal' },
-  ML: { prefix: '+223', name: 'Mali' },
-  BF: { prefix: '+226', name: 'Burkina Faso' },
-  GN: { prefix: '+224', name: 'Guinée' },
-  TG: { prefix: '+228', name: 'Togo' },
-  BJ: { prefix: '+229', name: 'Bénin' },
-  NE: { prefix: '+227', name: 'Niger' },
 }
 
 /**

@@ -44,6 +44,9 @@ export async function GET(req: NextRequest) {
     statut: string
     cost_sms: number
     created_at: Date
+    nb_contacts?: number
+    nb_success?: number
+    nb_failed?: number
   }
 
   const results: HistoryItem[] = []
@@ -71,7 +74,7 @@ export async function GET(req: NextRequest) {
     }
     const rows = await prisma.campaign.findMany({
       where,
-      select: { id: true, sender_nom: true, nb_contacts: true, contenu: true, statut: true, cost_sms: true, created_at: true, label: true },
+      select: { id: true, sender_nom: true, nb_contacts: true, nb_success: true, nb_failed: true, contenu: true, statut: true, cost_sms: true, created_at: true, label: true },
     })
     rows.forEach(c => results.push({
       id: c.id,
@@ -82,6 +85,9 @@ export async function GET(req: NextRequest) {
       statut: c.statut,
       cost_sms: c.cost_sms,
       created_at: c.created_at,
+      nb_contacts: c.nb_contacts,
+      nb_success: c.nb_success,
+      nb_failed: c.nb_failed,
     }))
   }
 

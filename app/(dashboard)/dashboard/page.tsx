@@ -69,8 +69,8 @@ export default async function DashboardPage() {
   // ---- Requêtes Prisma en parallèle ----
   const [
     smsCeMoisCount,
-    deliveredCeMois,
-    totalResolvedCeMois,
+    deliveredTotal,
+    totalResolved,
     messagesLast30Days,
     recentMessages,
     recentCampaigns,
@@ -80,13 +80,13 @@ export default async function DashboardPage() {
     prisma.message.count({
       where: { user_id: userId, created_at: { gte: startOfMonth } },
     }),
-    // SMS livrés ce mois
+    // SMS livrés (all-time)
     prisma.message.count({
-      where: { user_id: userId, statut: 'DELIVERED', created_at: { gte: startOfMonth } },
+      where: { user_id: userId, statut: 'DELIVERED' },
     }),
-    // SMS résolus (non PENDING) ce mois
+    // SMS résolus (non PENDING, all-time)
     prisma.message.count({
-      where: { user_id: userId, statut: { not: 'PENDING' }, created_at: { gte: startOfMonth } },
+      where: { user_id: userId, statut: { not: 'PENDING' } },
     }),
     // Activité 30 jours (seulement la date)
     prisma.message.findMany({
@@ -130,8 +130,8 @@ export default async function DashboardPage() {
     }),
   ])
 
-  const tauxSucces = totalResolvedCeMois > 0
-    ? Math.round((deliveredCeMois / totalResolvedCeMois) * 100)
+  const tauxSucces = totalResolved > 0
+    ? Math.round((deliveredTotal / totalResolved) * 100)
     : null
 
   const activityData = buildActivityData(messagesLast30Days)
@@ -223,7 +223,7 @@ export default async function DashboardPage() {
         <StatsCard
           title="Taux de succès"
           value={tauxSucces !== null ? `${tauxSucces}%` : '—'}
-          subtitle={tauxSucces !== null ? `${deliveredCeMois} livrés ce mois` : 'Aucun envoi ce mois'}
+          subtitle={tauxSucces !== null ? `${deliveredTotal} livrés au total` : 'Aucun envoi'}
           icon={CheckCircle2}
           iconColor="secondary"
         />

@@ -23,8 +23,7 @@ export const metadata: Metadata = { title: 'Admin — Tableau de bord' }
 export const dynamic = 'force-dynamic'
 
 const PAYS_LABELS: Record<string, string> = {
-  CI: "Côte d'Ivoire", SN: 'Sénégal', ML: 'Mali', BF: 'Burkina Faso',
-  GN: 'Guinée', TG: 'Togo', BJ: 'Bénin', NE: 'Niger',
+  CI: "Côte d'Ivoire",
 }
 
 export default async function AdminPage() {

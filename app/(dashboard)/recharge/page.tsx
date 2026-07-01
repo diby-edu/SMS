@@ -19,14 +19,6 @@ import { cn, formatFCFA, getPrixFromPaliers, type PalierPrix, formatDate, getSta
 // CONSTANTES
 // ============================================================
 
-const METHODES_PAIEMENT = [
-  { label: 'Orange Money CI', icon: '🟠' },
-  { label: 'MTN MoMo CI', icon: '🟡' },
-  { label: 'Wave CI', icon: '🔵' },
-  { label: 'Moov Money CI', icon: '🟣' },
-  { label: 'Free Money', icon: '🔴' },
-  { label: 'Orange Money SN/ML', icon: '🟠' },
-]
 
 interface Transaction {
   id: string
@@ -322,24 +314,6 @@ export default function RechargePage() {
             </div>
           </div>
         )}
-
-        {/* Méthodes de paiement */}
-        <div>
-          <p className="text-xs text-foreground-subtle font-medium mb-2">
-            Méthodes de paiement acceptées :
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {METHODES_PAIEMENT.map(({ label, icon }) => (
-              <span
-                key={label}
-                className="flex items-center gap-1 bg-border text-foreground-muted text-xs px-2.5 py-1 rounded-lg"
-              >
-                <span>{icon}</span>
-                {label}
-              </span>
-            ))}
-          </div>
-        </div>
 
         {/* Bouton payer */}
         <Button

@@ -50,7 +50,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname()
 
   const handleLogout = () => {
-    signOut({ callbackUrl: '/login' })
+    signOut({ callbackUrl: '/' })
   }
 
   const sidebarContent = (

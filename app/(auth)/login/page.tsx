@@ -26,7 +26,7 @@ const FEATURES = [
   { icon: MessageSquare, text: 'Envoi SMS unitaire et en masse' },
   { icon: BarChart3, text: 'Statistiques en temps réel' },
   { icon: Users, text: 'Gestion de contacts et listes' },
-  { icon: Globe, text: 'Couverture 8 pays d\'Afrique de l\'Ouest' },
+  { icon: Globe, text: 'Réseau Côte d\'Ivoire complet (Orange, MTN, Moov, Wave)' },
 ]
 
 export default function LoginPage() {
@@ -105,7 +105,7 @@ export default function LoginPage() {
             <br />
             <span className="text-primary">professionnelle</span>
             <br />
-            de l&apos;Afrique de l&apos;Ouest
+            en Côte d&apos;Ivoire
           </h2>
           <p className="text-foreground-muted text-base mb-8 leading-relaxed">
             Envoyez vos campagnes SMS en quelques clics. Orange Money, MTN,

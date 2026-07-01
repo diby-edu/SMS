@@ -92,7 +92,7 @@ export default function AdminSidebar({ open, onClose }: AdminSidebarProps) {
       {/* Déconnexion */}
       <div className="px-3 py-3 border-t border-border shrink-0">
         <button
-          onClick={() => signOut({ callbackUrl: '/login' })}
+          onClick={() => signOut({ callbackUrl: '/' })}
           className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-foreground-muted hover:text-danger hover:bg-danger/8 transition-all w-full text-left"
         >
           <LogOut className="w-4 h-4 shrink-0" />

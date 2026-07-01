@@ -11,26 +11,11 @@ import {
   Mail,
   User,
   Phone,
-  ChevronDown,
   CheckCircle2,
 } from 'lucide-react'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 
-// ============================================================
-// DONNÉES PAYS
-// ============================================================
-
-const PAYS = [
-  { code: 'CI', name: "Côte d'Ivoire", prefix: '+225' },
-  { code: 'SN', name: 'Sénégal', prefix: '+221' },
-  { code: 'ML', name: 'Mali', prefix: '+223' },
-  { code: 'BF', name: 'Burkina Faso', prefix: '+226' },
-  { code: 'GN', name: 'Guinée', prefix: '+224' },
-  { code: 'TG', name: 'Togo', prefix: '+228' },
-  { code: 'BJ', name: 'Bénin', prefix: '+229' },
-  { code: 'NE', name: 'Niger', prefix: '+227' },
-]
 
 // ============================================================
 // TYPES
@@ -104,7 +89,6 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
 
-  const selectedPays = PAYS.find((p) => p.code === form.pays)
   const passwordStrength = getPasswordStrength(form.password)
 
   const handleChange = (field: keyof FormData) => (
@@ -126,7 +110,6 @@ export default function RegisterPage() {
       newErrors.nom = ['Le nom doit avoir au moins 2 caractères']
     if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
       newErrors.email = ['Adresse email invalide']
-    if (!form.pays) newErrors.pays = ['Veuillez sélectionner un pays']
     if (!form.phone.trim() || form.phone.trim().length < 6)
       newErrors.phone = ['Numéro de téléphone invalide']
     if (!form.password || form.password.length < 8)
@@ -146,10 +129,10 @@ export default function RegisterPage() {
     setErrors({})
 
     try {
-      // Construire le numéro complet avec le préfixe pays
+      // Construire le numéro complet avec le préfixe Côte d'Ivoire
       const fullPhone = form.phone.startsWith('+')
         ? form.phone
-        : `${selectedPays?.prefix}${form.phone.replace(/^0/, '')}`
+        : `+225${form.phone.replace(/^0/, '')}`
 
       const res = await fetch('/api/auth/register', {
         method: 'POST',
@@ -280,44 +263,26 @@ export default function RegisterPage() {
               required
             />
 
-            {/* Pays + Téléphone */}
+            {/* Téléphone */}
             <div>
               <label className="label">Téléphone</label>
               <div className="flex gap-2">
-                {/* Sélecteur de pays */}
-                <div className="relative">
-                  <select
-                    value={form.pays}
-                    onChange={handleChange('pays')}
-                    className="input pr-8 pl-3 appearance-none cursor-pointer min-w-[130px]"
-                    aria-label="Pays"
-                  >
-                    {PAYS.map((p) => (
-                      <option key={p.code} value={p.code}>
-                        {p.name} ({p.prefix})
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-foreground-subtle pointer-events-none" />
+                {/* Indicatif fixe CI */}
+                <div className="input flex items-center gap-1.5 px-3 shrink-0 cursor-default select-none text-sm text-foreground-muted w-[88px]">
+                  <Phone className="w-3.5 h-3.5 text-foreground-subtle shrink-0" />
+                  <span>+225</span>
                 </div>
 
                 {/* Champ téléphone */}
-                <div className="flex-1 relative">
-                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground-subtle pointer-events-none">
-                    <Phone className="w-4 h-4" />
-                  </div>
-                  <input
-                    type="tel"
-                    placeholder={
-                      form.pays === 'CI' ? '07 00 00 00 00' : '00 00 00 00'
-                    }
-                    value={form.phone}
-                    onChange={handleChange('phone')}
-                    className={`input pl-10 ${errors.phone ? 'border-danger focus:border-danger focus:ring-danger/30' : ''}`}
-                    autoComplete="tel"
-                    required
-                  />
-                </div>
+                <input
+                  type="tel"
+                  placeholder="07 00 00 00 00"
+                  value={form.phone}
+                  onChange={handleChange('phone')}
+                  className={`input flex-1 ${errors.phone ? 'border-danger focus:border-danger focus:ring-danger/30' : ''}`}
+                  autoComplete="tel"
+                  required
+                />
               </div>
               {errors.phone && (
                 <p className="mt-1.5 text-xs text-danger flex items-center gap-1">
@@ -325,7 +290,7 @@ export default function RegisterPage() {
                 </p>
               )}
               <p className="mt-1.5 text-xs text-foreground-subtle">
-                Préfixe automatique : {selectedPays?.prefix}
+                Préfixe : +225 (Côte d&apos;Ivoire)
               </p>
             </div>
 

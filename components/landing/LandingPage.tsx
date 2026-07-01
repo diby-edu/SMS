@@ -16,7 +16,6 @@ const siteConfig = {
     clients: '500+',
     smsEnvoyes: '2M+',
     tauxDelivraison: '98%',
-    pays: '8',
   },
   pricing: [
     { fcfa: '10.000', sms: '300', prixSms: 33 },
@@ -33,7 +32,7 @@ const siteConfig = {
     },
     {
       q: "Quels opérateurs sont couverts en Côte d'Ivoire ?",
-      a: "TextoPro couvre Orange CI, MTN CI, Moov Africa, Wave et tous les réseaux mobiles en Côte d'Ivoire. Vos SMS sont délivrés quel que soit l'opérateur du destinataire.",
+      a: "TextoPro couvre Orange CI, MTN CI, Moov CI, Wave et tous les réseaux mobiles en Côte d'Ivoire. Vos SMS sont délivrés quel que soit l'opérateur du destinataire.",
     },
     {
       q: "Comment fonctionne l'expéditeur personnalisé ?",
@@ -46,10 +45,6 @@ const siteConfig = {
     {
       q: "Comment fonctionne l'OTP TextoPro ?",
       a: "L'API OTP génère et envoie automatiquement des codes de vérification à 6 chiffres, valables 5 minutes. Vous vérifiez ensuite le code avec un simple appel API.",
-    },
-    {
-      q: 'Quels moyens de paiement sont acceptés ?',
-      a: 'Orange Money, MTN Money, Wave, Moov Money et Free Money. Le rechargement est instantané.',
     },
   ],
 }
@@ -108,7 +103,7 @@ function Navbar() {
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[#0A0A0F]/90 backdrop-blur-xl">
-      <div className="mx-auto max-w-6xl px-4 flex items-center justify-between h-16">
+      <div className="mx-auto max-w-7xl px-4 flex items-center justify-between h-16">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
           <span className="text-2xl font-bold font-syne bg-gradient-to-r from-[#00D4FF] to-[#10B981] bg-clip-text text-transparent">
@@ -252,14 +247,13 @@ function Hero() {
 
         {/* Stats */}
         <div
-          className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-3xl mx-auto"
+          className="grid grid-cols-3 gap-6 max-w-2xl mx-auto"
           style={{ animation: 'fadeSlideUp 0.6s ease both', animationDelay: '0.4s' }}
         >
           {[
             { value: siteConfig.stats.clients, label: 'Clients actifs' },
             { value: siteConfig.stats.smsEnvoyes, label: 'SMS envoyés' },
             { value: siteConfig.stats.tauxDelivraison, label: 'Taux de livraison' },
-            { value: siteConfig.stats.pays, label: 'Pays couverts' },
           ].map(({ value, label }) => (
             <div key={label} className="p-4 rounded-xl border border-white/5 bg-white/2">
               <div className="text-2xl font-bold font-syne text-[#00D4FF]">{value}</div>
@@ -320,7 +314,7 @@ function Services() {
 
   return (
     <section id="services" className="py-24 px-4">
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-7xl">
         <FadeIn className="text-center mb-16">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-white/50 text-xs font-medium mb-4">
             NOS SERVICES
@@ -392,14 +386,14 @@ function Services() {
 function HowItWorks() {
   const steps = [
     { num: '01', title: 'Créez votre compte', desc: 'Inscription gratuite en 2 minutes. Aucune carte bancaire requise pour démarrer.' },
-    { num: '02', title: 'Rechargez votre solde', desc: 'Payez via Orange Money, MTN, Wave ou Moov. Le rechargement est instantané.' },
+    { num: '02', title: 'Rechargez votre solde', desc: 'Payez via Orange Money, MTN ou Wave CI. Le rechargement est instantané.' },
     { num: '03', title: 'Configurez votre expéditeur', desc: "Demandez votre nom d'expéditeur (marque). Validation par les opérateurs en quelques jours." },
     { num: '04', title: 'Envoyez vos SMS', desc: "Lancez vos campagnes, utilisez l'API ou activez les webhooks automatiques. C'est tout." },
   ]
 
   return (
     <section className="py-24 px-4 bg-white/[0.01] border-y border-white/5">
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-7xl">
         <FadeIn className="text-center mb-16">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-white/50 text-xs font-medium mb-4">
             DÉMARRAGE RAPIDE
@@ -436,7 +430,7 @@ function HowItWorks() {
 function Pricing() {
   return (
     <section id="tarifs" className="py-24 px-4">
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-7xl">
         <FadeIn className="text-center mb-16">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-white/50 text-xs font-medium mb-4">
             TARIFS TRANSPARENTS
@@ -547,7 +541,7 @@ function CodePreview() {
 
   return (
     <section id="api" className="py-24 px-4 bg-white/[0.01] border-y border-white/5">
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-7xl">
         <div className="grid md:grid-cols-2 gap-12 items-center">
           <FadeIn>
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-white/50 text-xs font-medium mb-4">
@@ -745,7 +739,7 @@ function CTAFinal() {
 function Footer() {
   return (
     <footer className="border-t border-white/5 py-12 px-4">
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-7xl">
         <div className="grid md:grid-cols-4 gap-8 mb-10">
           <div className="md:col-span-2">
             <div className="text-2xl font-bold font-syne bg-gradient-to-r from-[#00D4FF] to-[#10B981] bg-clip-text text-transparent mb-3">
@@ -805,7 +799,7 @@ function WhatsAppButton() {
       style={{
         background: '#25D366',
         boxShadow: '0 4px 20px rgba(37,211,102,0.35)',
-        animation: 'fadeSlideUp 0.5s ease 1.5s both',
+        animation: 'fadeSlideUp 0.4s ease both',
       }}
       aria-label="Contacter sur WhatsApp"
     >
