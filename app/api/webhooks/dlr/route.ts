@@ -19,17 +19,33 @@ import { MessageStatus } from '@prisma/client'
  */
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
+    const rawText = await req.text()
+    const headers: Record<string, string> = {}
+    req.headers.forEach((v, k) => { headers[k] = v })
 
-    const letextoId = body.id as string | undefined
-    const status = body.statuts as string | undefined
+    console.log('[DLR] ========== REQUÊTE REÇUE ==========')
+    console.log('[DLR] IP:', req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'inconnue')
+    console.log('[DLR] Headers:', JSON.stringify(headers))
+    console.log('[DLR] Body brut:', rawText)
+
+    let body: Record<string, unknown>
+    try {
+      body = JSON.parse(rawText)
+    } catch {
+      console.log('[DLR] Body non-JSON, tentative form-data parsing')
+      body = Object.fromEntries(new URLSearchParams(rawText))
+    }
+
+    console.log('[DLR] Body parsé:', JSON.stringify(body))
+    console.log('[DLR] =====================================')
+
+    const letextoId = (body.id ?? body.messageId ?? body.message_id) as string | undefined
+    const status = (body.statuts ?? body.status ?? body.statut) as string | undefined
 
     // Validation minimale
     if (!letextoId || !status) {
-      return NextResponse.json(
-        { error: 'Paramètres manquants : id et statuts requis' },
-        { status: 400 }
-      )
+      console.warn('[DLR] Champs manquants — id/statuts introuvables dans le payload')
+      return NextResponse.json({ ok: true })
     }
 
     // Mapping des statuts LeTexto → notre enum MessageStatus
