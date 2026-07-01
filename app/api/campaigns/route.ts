@@ -3,17 +3,11 @@ import { getServerSession } from 'next-auth'
 import { z } from 'zod'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { createSMSCampaign } from '@/lib/letexto'
+import { sendSingleSMS, calculateSMSParts } from '@/lib/letexto'
 
 // ============================================================
 // VALIDATION
 // ============================================================
-
-const contactSchema = z.object({
-  phone: z.string().min(8),
-  nom: z.string().optional(),
-  prenom: z.string().optional(),
-}).and(z.record(z.string()).optional() as z.ZodType<Record<string, string>>)
 
 const campaignSchema = z.object({
   label: z.string().min(1, 'Nom de campagne requis').max(100).trim(),
@@ -47,7 +41,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const { label, sender, content, group_id, scheduled_at } = result.data
+    const { label, sender, content, group_id } = result.data
     const userId = session.user.id
 
     // Résolution des contacts (tableau direct ou depuis un groupe)
@@ -113,36 +107,41 @@ export async function POST(req: NextRequest) {
       }),
     ])
 
-    // Appel API LeTexto
-    let letextoResponse
-    try {
-      letextoResponse = await createSMSCampaign({
-        label,
-        sender,
-        contacts,
-        content,
-        ...(scheduled_at && { scheduledAt: scheduled_at }),
+    // Envoi individuel pour chaque contact via /messages/send
+    const partCount = calculateSMSParts(content)
+    const results = await Promise.allSettled(
+      contacts.map(async (contact) => {
+        const response = await sendSingleSMS({ from: sender, to: contact.phone, content })
+        await prisma.message.create({
+          data: {
+            user_id: userId,
+            sender,
+            destinataire: contact.phone,
+            contenu: content,
+            statut: 'SENT',
+            letexto_id: response.id,
+            cost_sms: partCount,
+          },
+        })
+        return response
       })
+    )
 
-      await prisma.campaign.update({
-        where: { id: campaign.id },
-        data: {
-          letexto_id: String(letextoResponse.id),
-          statut: 'SENT',
-        },
-      })
-    } catch (letextoError) {
-      console.error('[Campaign] Erreur LeTexto:', letextoError)
-      await prisma.campaign.update({
-        where: { id: campaign.id },
-        data: { statut: 'FAILED' },
-      })
+    const nbSuccess = results.filter((r) => r.status === 'fulfilled').length
+    const nbFailed = results.filter((r) => r.status === 'rejected').length
 
+    await prisma.campaign.update({
+      where: { id: campaign.id },
+      data: {
+        statut: nbFailed === nbContacts ? 'FAILED' : 'COMPLETED',
+        nb_success: nbSuccess,
+        nb_failed: nbFailed,
+      },
+    })
+
+    if (nbSuccess === 0) {
       return NextResponse.json(
-        {
-          error: 'La campagne a été débitée mais l\'envoi a échoué. Contactez le support.',
-          campaign_id: campaign.id,
-        },
+        { error: 'L\'envoi a échoué pour tous les contacts. Contactez le support.', campaign_id: campaign.id },
         { status: 502 }
       )
     }
@@ -156,8 +155,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       campaign_id: campaign.id,
-      letexto_id: letextoResponse.id,
       nb_contacts: nbContacts,
+      nb_success: nbSuccess,
+      nb_failed: nbFailed,
       solde_restant: updatedUser?.solde_sms ?? 0,
     })
   } catch (error) {
