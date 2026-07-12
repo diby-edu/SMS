@@ -54,10 +54,19 @@ export async function PATCH(
 
   // Valider l'URL du webhook DLR si fournie
   if (dlr_webhook_url && typeof dlr_webhook_url === 'string') {
+    let parsed: URL
     try {
-      new URL(dlr_webhook_url)
+      parsed = new URL(dlr_webhook_url)
     } catch {
       return NextResponse.json({ error: 'URL du webhook DLR invalide' }, { status: 400 })
+    }
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return NextResponse.json({ error: 'Protocole non autorisé (http/https uniquement)' }, { status: 400 })
+    }
+    // Bloquer les adresses internes pour éviter le SSRF
+    const blockedInternal = /^(127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|169\.254\.|::1$|localhost$)/i
+    if (blockedInternal.test(parsed.hostname)) {
+      return NextResponse.json({ error: 'URL vers un réseau interne non autorisée' }, { status: 400 })
     }
   }
 

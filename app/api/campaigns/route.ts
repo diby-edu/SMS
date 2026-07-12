@@ -43,6 +43,17 @@ export async function POST(req: NextRequest) {
     const { label, sender, content, group_id } = result.data
     const userId = session.user.id
 
+    // Vérifier que le sender appartient à l'utilisateur et est approuvé
+    const approvedSender = await prisma.sender.findFirst({
+      where: { user_id: userId, nom: sender, statut: 'APPROVED' },
+    })
+    if (!approvedSender) {
+      return NextResponse.json(
+        { error: 'Expéditeur invalide ou non approuvé' },
+        { status: 403 }
+      )
+    }
+
     // Résolution des contacts (tableau direct ou depuis un groupe)
     let contacts: Array<{ phone: string } & Record<string, string>>
     if (group_id) {

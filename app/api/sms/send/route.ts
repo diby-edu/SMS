@@ -51,6 +51,17 @@ export async function POST(req: NextRequest) {
     const { from, to, content } = result.data
     const userId = session.user.id
 
+    // Vérifier que le sender appartient à l'utilisateur et est approuvé
+    const approvedSender = await prisma.sender.findFirst({
+      where: { user_id: userId, nom: from, statut: 'APPROVED' },
+    })
+    if (!approvedSender) {
+      return NextResponse.json(
+        { error: 'Expéditeur invalide ou non approuvé' },
+        { status: 403 }
+      )
+    }
+
     // Calcul du nombre de SMS (parts)
     const partCount = calculateSMSParts(content)
 
