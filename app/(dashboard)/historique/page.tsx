@@ -70,6 +70,8 @@ export default function HistoriquePage() {
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
   const [selectedItem, setSelectedItem] = useState<HistoryItem | null>(null)
+  const [downloading, setDownloading] = useState(false)
+  const [downloadError, setDownloadError] = useState<string | null>(null)
 
   const [filters, setFilters] = useState({
     page: 1,
@@ -111,6 +113,11 @@ export default function HistoriquePage() {
     setFilters((prev) => ({ ...prev, [key]: value, ...(key !== 'page' && { page: 1 }) }))
   }
 
+  const closeModal = () => {
+    setSelectedItem(null)
+    setDownloadError(null)
+  }
+
   // ---- Export CSV ----
   const sourceLabel = (source: HistoryItem['source']) => {
     if (source === 'CAMPAIGN') return 'Campagne Marketing'
@@ -139,7 +146,7 @@ export default function HistoriquePage() {
     ])
 
     const csv = [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n')
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -150,29 +157,39 @@ export default function HistoriquePage() {
 
   // ---- Télécharger détails d'un item ----
   const downloadItemCSV = async (item: HistoryItem) => {
-    let csv: string
-    const filename = `details-${item.id.slice(0, 8)}-${new Date().toISOString().split('T')[0]}.csv`
+    if (downloading) return
+    setDownloading(true)
+    setDownloadError(null)
+    try {
+      let csv: string
+      const filename = `details-${item.id.slice(0, 8)}-${new Date().toISOString().split('T')[0]}.csv`
 
-    if (item.source === 'CAMPAIGN') {
-      const res = await fetch(`/api/campaigns/${item.id}/messages`)
-      const data = res.ok ? await res.json() : { messages: [] }
-      const msgs: Array<{ destinataire: string; statut: string }> = data.messages ?? []
-      const headers = ['Numéro', 'Statut']
-      const rows = msgs.map((m) => [m.destinataire, getMessageStatusLabel(m.statut)])
-      csv = [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n')
-    } else {
-      const headers = ['Numéro', 'Statut']
-      const row = [item.destinataire, getMessageStatusLabel(item.statut)]
-      csv = [headers.join(';'), row.join(';')].join('\n')
+      if (item.source === 'CAMPAIGN') {
+        const res = await fetch(`/api/campaigns/${item.id}/messages`)
+        if (!res.ok) throw new Error(`Erreur serveur (${res.status})`)
+        const data = await res.json()
+        const msgs: Array<{ destinataire: string; statut: string }> = data.messages ?? []
+        const headers = ['Numéro', 'Statut']
+        const rows = msgs.map((m) => [m.destinataire, getMessageStatusLabel(m.statut)])
+        csv = [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n')
+      } else {
+        const headers = ['Numéro', 'Statut']
+        const row = [item.destinataire, getMessageStatusLabel(item.statut)]
+        csv = [headers.join(';'), row.join(';')].join('\n')
+      }
+
+      const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      setDownloadError('Impossible de télécharger le CSV. Réessayez.')
+    } finally {
+      setDownloading(false)
     }
-
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    a.click()
-    URL.revokeObjectURL(url)
   }
 
   // ============================================================
@@ -315,7 +332,7 @@ export default function HistoriquePage() {
                       <div className="flex items-center gap-2">
                         <span className={cn('badge', getStatusColor(item.statut))}>
                           {item.source === 'CAMPAIGN' && item.nb_contacts
-                            ? `${item.nb_success ?? 0}/${item.nb_contacts} livrés`
+                            ? `${item.nb_success ?? 0}/${item.nb_contacts} envoyés`
                             : getMessageStatusLabel(item.statut)}
                         </span>
                         <button
@@ -344,7 +361,7 @@ export default function HistoriquePage() {
                     </span>
                     <span className={cn('badge w-fit', getStatusColor(item.statut))}>
                       {item.source === 'CAMPAIGN' && item.nb_contacts
-                        ? `${item.nb_success ?? 0}/${item.nb_contacts} livrés`
+                        ? `${item.nb_success ?? 0}/${item.nb_contacts} envoyés`
                         : getMessageStatusLabel(item.statut)}
                     </span>
                     <span className="text-sm text-foreground-muted text-right">
@@ -371,7 +388,7 @@ export default function HistoriquePage() {
       {selectedItem && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-          onClick={() => setSelectedItem(null)}
+          onClick={closeModal}
         >
           <div
             className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md shadow-xl"
@@ -381,7 +398,7 @@ export default function HistoriquePage() {
             <div className="flex items-center justify-between mb-5">
               <h3 className="font-syne font-bold text-base text-foreground">Détails</h3>
               <button
-                onClick={() => setSelectedItem(null)}
+                onClick={closeModal}
                 className="w-8 h-8 flex items-center justify-center rounded-lg text-foreground-muted hover:bg-border transition-colors"
               >
                 <X className="w-4 h-4" />
@@ -410,7 +427,7 @@ export default function HistoriquePage() {
                   </div>
                   <div className="bg-background rounded-lg px-3 py-2 text-center border border-border">
                     <p className="text-lg font-bold text-[#10B981]">{selectedItem.nb_success ?? 0}</p>
-                    <p className="text-xs text-foreground-subtle mt-0.5">Livrés</p>
+                    <p className="text-xs text-foreground-subtle mt-0.5">Acceptés</p>
                   </div>
                   <div className="bg-background rounded-lg px-3 py-2 text-center border border-border">
                     <p className="text-lg font-bold text-danger">{selectedItem.nb_failed ?? 0}</p>
@@ -433,11 +450,19 @@ export default function HistoriquePage() {
             {/* Bouton download */}
             <button
               onClick={() => downloadItemCSV(selectedItem)}
-              className="w-full flex items-center justify-center gap-2 bg-primary/10 text-primary hover:bg-primary/15 transition-colors rounded-xl px-4 py-2.5 text-sm font-medium"
+              disabled={downloading}
+              className="w-full flex items-center justify-center gap-2 bg-primary/10 text-primary hover:bg-primary/15 disabled:opacity-60 disabled:cursor-not-allowed transition-colors rounded-xl px-4 py-2.5 text-sm font-medium"
             >
-              <Download className="w-4 h-4" />
-              Télécharger CSV
+              {downloading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              {downloading ? 'Chargement...' : 'Télécharger CSV'}
             </button>
+            {downloadError && (
+              <p className="text-xs text-danger text-center mt-2">{downloadError}</p>
+            )}
           </div>
         </div>
       )}

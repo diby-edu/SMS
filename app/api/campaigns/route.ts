@@ -17,7 +17,6 @@ const campaignSchema = z.object({
     .array(z.object({ phone: z.string().min(8) }).catchall(z.string()))
     .optional(),
   group_id: z.string().optional(),
-  scheduled_at: z.string().optional(), // ISO 8601 — programmation de la campagne
 })
 
 // ============================================================
@@ -66,88 +65,111 @@ export async function POST(req: NextRequest) {
     }
 
     const nbContacts = contacts.length
+    // Calculer le coût réel avant le débit (1 SMS ≠ 1 part si message > 160 chars)
+    const partCount = calculateSMSParts(content)
+    const totalCost = nbContacts * partCount
 
-    // Vérification du solde
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { solde_sms: true, is_active: true },
+    // Débit atomique : check solde + décrémentation en une seule requête SQL
+    // Évite la race condition (deux requêtes simultanées ne peuvent pas toutes deux passer)
+    const debitResult = await prisma.user.updateMany({
+      where: { id: userId, is_active: true, solde_sms: { gte: totalCost } },
+      data: { solde_sms: { decrement: totalCost } },
     })
 
-    if (!user?.is_active) {
-      return NextResponse.json({ error: 'Compte désactivé' }, { status: 403 })
-    }
-
-    if ((user?.solde_sms ?? 0) < nbContacts) {
+    if (debitResult.count === 0) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { is_active: true, solde_sms: true },
+      })
+      if (!user?.is_active) {
+        return NextResponse.json({ error: 'Compte désactivé' }, { status: 403 })
+      }
       return NextResponse.json(
         {
-          error: `Solde insuffisant. La campagne nécessite ${nbContacts} SMS, vous en avez ${user?.solde_sms}.`,
-          required: nbContacts,
-          solde_actuel: user?.solde_sms,
+          error: `Solde insuffisant. La campagne nécessite ${totalCost} SMS, vous en avez ${user?.solde_sms ?? 0}.`,
+          required: totalCost,
+          solde_actuel: user?.solde_sms ?? 0,
         },
         { status: 402 }
       )
     }
 
-    // Débit atomique + création de la campagne en DB
-    const [, campaign] = await prisma.$transaction([
-      prisma.user.update({
-        where: { id: userId },
-        data: { solde_sms: { decrement: nbContacts } },
-      }),
-      prisma.campaign.create({
-        data: {
-          user_id: userId,
-          label,
-          sender_nom: sender,
-          contenu: content,
-          nb_contacts: nbContacts,
-          cost_sms: nbContacts,
-          statut: 'CREATED',
-        },
-      }),
-    ])
-
-    // Envoi individuel pour chaque contact via /messages/send
-    const partCount = calculateSMSParts(content)
-    const results = await Promise.allSettled(
-      contacts.map(async (contact) => {
-        const response = await sendSingleSMS({ from: sender, to: contact.phone, content })
-        await prisma.message.create({
-          data: {
-            user_id: userId,
-            sender,
-            destinataire: contact.phone,
-            contenu: content,
-            statut: 'SENT',
-            letexto_id: response.id,
-            cost_sms: partCount,
-            campaign_id: campaign.id,
-          },
-        })
-        return response
-      })
-    )
-
-    const nbSuccess = results.filter((r) => r.status === 'fulfilled').length
-    const nbFailed = results.filter((r) => r.status === 'rejected').length
-
-    await prisma.campaign.update({
-      where: { id: campaign.id },
+    // Création de la campagne en DB
+    const campaign = await prisma.campaign.create({
       data: {
-        statut: nbFailed === nbContacts ? 'FAILED' : 'SENT',
-        nb_success: nbSuccess,
-        nb_failed: nbFailed,
+        user_id: userId,
+        label,
+        sender_nom: sender,
+        contenu: content,
+        nb_contacts: nbContacts,
+        cost_sms: totalCost,
+        statut: 'CREATED',
       },
     })
 
+    // Envois en parallèle — séparés des écritures DB pour ne pas compter
+    // un échec d'insertion comme un échec d'envoi
+    const sendResults = await Promise.allSettled(
+      contacts.map((contact) => sendSingleSMS({ from: sender, to: contact.phone, content }))
+    )
+
+    type SuccessEntry = { phone: string; letextoId: string }
+    const successes: SuccessEntry[] = []
+    sendResults.forEach((r, i) => {
+      if (r.status === 'fulfilled') {
+        successes.push({ phone: contacts[i].phone, letextoId: r.value.id })
+      }
+    })
+
+    const nbSuccess = successes.length
+    const nbFailed = nbContacts - nbSuccess
+
+    // Écriture des Message rows en une seule requête (createMany)
+    if (successes.length > 0) {
+      await prisma.message.createMany({
+        data: successes.map(({ phone, letextoId }) => ({
+          user_id: userId,
+          sender,
+          destinataire: phone,
+          contenu: content,
+          statut: 'SENT',
+          letexto_id: letextoId,
+          cost_sms: partCount,
+          campaign_id: campaign.id,
+        })),
+      })
+    }
+
+    // Remboursement intégral si aucun SMS n'est parti
+    if (nbSuccess === 0) {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { solde_sms: { increment: totalCost } },
+      })
+    }
+
+    // Mise à jour du statut campagne — non-bloquant si la DB plante ici
+    // (les SMS ont déjà été envoyés, on ne veut pas masquer le résultat)
+    try {
+      await prisma.campaign.update({
+        where: { id: campaign.id },
+        data: {
+          statut: nbFailed === nbContacts ? 'FAILED' : 'SENT',
+          nb_success: nbSuccess,
+          nb_failed: nbFailed,
+        },
+      })
+    } catch (e) {
+      console.error('[Campaign] Erreur mise à jour statut campagne:', e)
+    }
+
     if (nbSuccess === 0) {
       return NextResponse.json(
-        { error: 'L\'envoi a échoué pour tous les contacts. Contactez le support.', campaign_id: campaign.id },
+        { error: "L'envoi a échoué pour tous les contacts. Contactez le support.", campaign_id: campaign.id },
         { status: 502 }
       )
     }
 
-    // Solde restant
     const updatedUser = await prisma.user.findUnique({
       where: { id: userId },
       select: { solde_sms: true },

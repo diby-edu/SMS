@@ -341,11 +341,14 @@ export default function SMSPage() {
         })
         const data = await res.json()
         if (!res.ok) { toast.error(data.error || 'Erreur lors de l\'envoi'); setStep(1); return }
-        setResult({ nb: data.nb_contacts, solde: data.solde_restant })
+        setResult({ nb: data.nb_success ?? data.nb_contacts, solde: data.solde_restant })
         await updateSession({ solde_sms: data.solde_restant })
-        toast.success(scheduledAt
-          ? `Campagne programmée pour le ${new Date(scheduledAt).toLocaleString('fr-FR')}`
-          : `${data.nb_contacts} SMS envoyés avec succès !`)
+        const nbFailed: number = data.nb_failed ?? 0
+        toast.success(
+          nbFailed > 0
+            ? `${data.nb_success}/${data.nb_contacts} SMS envoyés (${nbFailed} échec${nbFailed > 1 ? 's' : ''})`
+            : `${data.nb_success ?? data.nb_contacts} SMS envoyés avec succès !`
+        )
       }
 
       setLabel(''); setPhoneNumbers([]); setPhoneInputValue(''); setContent(''); setGroupId('')

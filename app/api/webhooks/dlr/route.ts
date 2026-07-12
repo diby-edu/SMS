@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
     const status = (body.status ?? body.statuts) as string | undefined
 
     if (!letextoId || !status) {
+      console.warn(`[DLR] Payload invalide — id: ${letextoId ?? 'absent'}, status: ${status ?? 'absent'}`)
       return NextResponse.json({ ok: true })
     }
 
