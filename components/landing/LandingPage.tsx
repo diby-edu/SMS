@@ -529,8 +529,9 @@ function CodePreview() {
 # Réponse
 {
   "success": true,
-  "messageId": "msg_abc123",
-  "status": "SENT"
+  "message": "SMS envoyé au +2250700000000",
+  "message_id": "cmg7x2ab0001",
+  "cost_sms": 1
 }`
 
   const handleCopy = () => {
@@ -612,7 +613,7 @@ function CodePreview() {
                     let color = '#94A3B8'
                     if (line.startsWith('#')) color = '#475569'
                     else if (line.includes('curl') || line.startsWith('  -')) color = '#00D4FF'
-                    else if (line.includes('"success"') || line.includes('"messageId"') || line.includes('"status"')) color = '#10B981'
+                    else if (line.includes('"success"') || line.includes('"message"') || line.includes('"message_id"') || line.includes('"cost_sms"')) color = '#10B981'
                     return <span key={i} style={{ color, display: 'block' }}>{line || ' '}</span>
                   })}
                 </code>
