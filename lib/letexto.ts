@@ -5,6 +5,7 @@
  */
 
 import axios from 'axios'
+import { getSMSPartCount } from '@/lib/utils'
 
 const API_URL = process.env.LETEXTO_API_URL || 'https://apis.letexto.com/v1'
 const API_KEY = process.env.LETEXTO_API_KEY
@@ -168,12 +169,9 @@ export async function createLeTextoSender(name: string): Promise<unknown> {
 }
 
 /**
- * Calcule le nombre de parties (parts) d'un SMS
- * SMS standard : 160 chars = 1 part
- * SMS long : 153 chars par part (au-delà de 160 chars)
+ * Calcule le nombre de segments SMS facturés (GSM-7 vs UCS-2).
+ * Délègue à la logique partagée pour rester cohérent avec l'UI.
  */
 export function calculateSMSParts(content: string): number {
-  const length = content.length
-  if (length <= 160) return 1
-  return Math.ceil(length / 153)
+  return getSMSPartCount(content)
 }

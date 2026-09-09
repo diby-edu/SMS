@@ -158,7 +158,8 @@ export async function POST(
 
     const payload: ChariowPayload = await req.json()
     const event = payload.event
-    console.log(`[Chariow] Payload reçu:`, JSON.stringify(payload, null, 2))
+    // Ne pas logguer le payload complet (contient nom + téléphone du client)
+    console.log(`[Chariow] Événement reçu: ${event}`)
 
     // Vérifier que l'événement est connu
     if (!event || !CHARIOW_EVENTS[event]) {
@@ -194,9 +195,13 @@ export async function POST(
       return NextResponse.json({ ok: true })
     }
 
-    // Vérifier le solde
+    // Débit atomique du solde AVANT l'envoi (anti race condition)
     const costSms = calculateSMSParts(smsContent)
-    if (config.user.solde_sms < costSms) {
+    const debit = await prisma.user.updateMany({
+      where: { id: config.user_id, is_active: true, solde_sms: { gte: costSms } },
+      data: { solde_sms: { decrement: costSms } },
+    })
+    if (debit.count === 0) {
       console.warn(`[Chariow] Solde insuffisant pour user ${config.user_id}`)
       return NextResponse.json({ ok: true })
     }
@@ -219,17 +224,20 @@ export async function POST(
           where: { id: messageRecord.id },
           data: { statut: 'SENT', letexto_id: result.id?.toString() ?? null },
         })
-        await prisma.user.update({
-          where: { id: config.user_id },
-          data: { solde_sms: { decrement: costSms } },
-        })
         console.log(`[Chariow] SMS envoyé à ${phoneClean} pour event ${event}`)
       })
       .catch(async (err) => {
-        await prisma.message.update({
-          where: { id: messageRecord.id },
-          data: { statut: 'FAILED' },
-        })
+        // Envoi échoué → remboursement + marquer FAILED
+        await prisma.$transaction([
+          prisma.user.update({
+            where: { id: config.user_id },
+            data: { solde_sms: { increment: costSms } },
+          }),
+          prisma.message.update({
+            where: { id: messageRecord.id },
+            data: { statut: 'FAILED' },
+          }),
+        ])
         const detail = err.response?.data ? JSON.stringify(err.response.data) : err.message
         console.error(`[Chariow] Échec envoi SMS vers ${phoneClean} (sender: ${config.sender}, event: ${event}): ${detail}`)
       })

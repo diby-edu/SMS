@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
+import { rateLimit, getClientIp, tooManyRequests } from '@/lib/rateLimit'
 
 // ============================================================
 // VALIDATION SCHEMA
@@ -45,6 +46,15 @@ const registerSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    // Anti-abus : max 5 créations de compte / heure / IP
+    const rl = rateLimit(`register:${getClientIp(req)}`, 5, 60 * 60 * 1000)
+    if (!rl.allowed) {
+      return tooManyRequests(
+        rl.retryAfterSec,
+        'Trop de tentatives de création de compte. Réessayez plus tard.'
+      )
+    }
+
     const body = await req.json()
 
     // Validation des champs

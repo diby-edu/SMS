@@ -107,6 +107,8 @@ model Sender {
   user      User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
   campaigns Campaign[]
 
+  @@index([user_id])
+  @@index([statut])
   @@map("senders")
 }
 
@@ -160,6 +162,7 @@ model Message {
   @@index([api_key_id])
   @@index([letexto_id])
   @@index([campaign_id])
+  @@index([created_at])
   @@map("messages")
 }
 
@@ -202,6 +205,7 @@ model Transaction {
 
   @@index([user_id])
   @@index([paydunya_token])
+  @@index([created_at])
   @@map("transactions")
 }
 

@@ -4,6 +4,33 @@ import { z } from 'zod'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { sendSingleSMS, calculateSMSParts } from '@/lib/letexto'
+import { interpolateMessage } from '@/lib/utils'
+import { rateLimit, tooManyRequests } from '@/lib/rateLimit'
+
+// Exécute `fn` sur chaque élément avec une concurrence bornée
+// (évite d'ouvrir des milliers de connexions HTTP simultanées vers LeTexto)
+async function runWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>
+): Promise<PromiseSettledResult<R>[]> {
+  const results: PromiseSettledResult<R>[] = new Array(items.length)
+  let cursor = 0
+  async function worker() {
+    while (cursor < items.length) {
+      const i = cursor++
+      try {
+        results[i] = { status: 'fulfilled', value: await fn(items[i], i) }
+      } catch (reason) {
+        results[i] = { status: 'rejected', reason }
+      }
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, () => worker())
+  )
+  return results
+}
 
 // ============================================================
 // VALIDATION
@@ -31,6 +58,16 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
+
+    // La programmation d'envoi n'est pas encore implémentée côté serveur :
+    // on refuse explicitement plutôt que d'envoyer immédiatement en silence.
+    if (body?.scheduled_at) {
+      return NextResponse.json(
+        { error: "La programmation d'envoi n'est pas encore disponible. Retirez la date pour un envoi immédiat." },
+        { status: 400 }
+      )
+    }
+
     const result = campaignSchema.safeParse(body)
 
     if (!result.success) {
@@ -43,13 +80,17 @@ export async function POST(req: NextRequest) {
     const { label, sender, content, group_id } = result.data
     const userId = session.user.id
 
-    // Vérifier que le sender appartient à l'utilisateur et est approuvé
+    // Rate limiting par utilisateur (une campagne = beaucoup de SMS)
+    const rl = rateLimit(`campaign:${userId}`, 10, 60 * 1000)
+    if (!rl.allowed) return tooManyRequests(rl.retryAfterSec)
+
+    // Vérifier que le sender appartient à l'utilisateur, est approuvé, et n'est PAS de type OTP
     const approvedSender = await prisma.sender.findFirst({
-      where: { user_id: userId, nom: sender, statut: 'APPROVED' },
+      where: { user_id: userId, nom: sender, statut: 'APPROVED', type_message: { not: 'OTP' } },
     })
     if (!approvedSender) {
       return NextResponse.json(
-        { error: 'Expéditeur invalide ou non approuvé' },
+        { error: 'Expéditeur invalide, non approuvé, ou de type OTP (réservé aux codes OTP)' },
         { status: 403 }
       )
     }
@@ -118,17 +159,24 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    // Envois en parallèle — séparés des écritures DB pour ne pas compter
-    // un échec d'insertion comme un échec d'envoi
-    const sendResults = await Promise.allSettled(
-      contacts.map((contact) => sendSingleSMS({ from: sender, to: contact.phone, content }))
+    // Contenu personnalisé par contact ({nom}, {prenom}, {telephone})
+    const buildContent = (c: { phone: string } & Record<string, string>) =>
+      interpolateMessage(content, { ...c, telephone: c.phone })
+
+    // Envois avec concurrence bornée (max 20 en parallèle) — séparés des écritures DB
+    const sendResults = await runWithConcurrency(contacts, 20, (contact) =>
+      sendSingleSMS({ from: sender, to: contact.phone, content: buildContent(contact) })
     )
 
-    type SuccessEntry = { phone: string; letextoId: string }
+    type SuccessEntry = { phone: string; letextoId: string; contenu: string }
     const successes: SuccessEntry[] = []
     sendResults.forEach((r, i) => {
       if (r.status === 'fulfilled') {
-        successes.push({ phone: contacts[i].phone, letextoId: r.value.id })
+        successes.push({
+          phone: contacts[i].phone,
+          letextoId: r.value.id,
+          contenu: buildContent(contacts[i]),
+        })
       }
     })
 
@@ -138,11 +186,11 @@ export async function POST(req: NextRequest) {
     // Écriture des Message rows en une seule requête (createMany)
     if (successes.length > 0) {
       await prisma.message.createMany({
-        data: successes.map(({ phone, letextoId }) => ({
+        data: successes.map(({ phone, letextoId, contenu }) => ({
           user_id: userId,
           sender,
           destinataire: phone,
-          contenu: content,
+          contenu,
           statut: 'SENT',
           letexto_id: letextoId,
           cost_sms: partCount,

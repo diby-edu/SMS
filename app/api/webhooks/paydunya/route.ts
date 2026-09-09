@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
 
     // PayDunya envoie le token dans différents chemins selon la version
-    console.log('[PayDunya IPN] Payload reçu:', JSON.stringify(body))
+    // (ne pas logguer le payload complet : contient des données de paiement)
     const token = (
       body?.data?.bill?.token ||
       body?.data?.invoice?.token ||

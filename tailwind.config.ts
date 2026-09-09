@@ -32,7 +32,8 @@ const config: Config = {
         foreground: {
           DEFAULT: '#FFFFFF',
           muted: '#94A3B8',
-          subtle: '#475569',
+          // Remonté de #475569 (~3.3:1) à ~5:1 sur fond #0A0A0F pour WCAG AA
+          subtle: '#7C8AA3',
         },
         // Statuts
         status: {

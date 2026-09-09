@@ -115,17 +115,15 @@ export async function createPayDunyaInvoice(
     },
   }
 
-  // Log de diagnostic (visible dans pm2 logs)
-  console.log('[PayDunya] Mode:', mode)
-  console.log('[PayDunya] API URL:', API_URL)
-  console.log('[PayDunya] MASTER_KEY prefix:', (process.env.PAYDUNYA_MASTER_KEY || '').slice(0, 8) + '...')
+  // Log de diagnostic minimal (ne jamais logguer les clés ni la réponse brute)
+  console.log('[PayDunya] Création facture — mode:', mode)
 
   const response = await paydunyaClient.post<PayDunyaInvoiceResponse>(
     '/checkout-invoice/create',
     payload
   )
 
-  console.log('[PayDunya] Response:', JSON.stringify(response.data))
+  console.log('[PayDunya] response_code:', response.data.response_code)
 
   if (response.data.response_code !== '00') {
     throw new Error(`PayDunya error: ${response.data.response_text}`)

@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { rateLimit, getClientIp, tooManyRequests } from '@/lib/rateLimit'
 
 const MAX_ATTEMPTS = 3
 
@@ -32,6 +33,10 @@ export async function POST(req: NextRequest) {
         { status: 401 }
       )
     }
+
+    // Anti brute-force distribué (en plus du compteur de 3 essais par code)
+    const rl = rateLimit(`otp-verify:${getClientIp(req)}`, 60, 10 * 60 * 1000)
+    if (!rl.allowed) return tooManyRequests(rl.retryAfterSec)
 
     // ---- Validation du body ----
     const body = await req.json()

@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { createPayDunyaInvoice } from '@/lib/paydunya'
 import { getPrixFromPaliers, type PalierPrix } from '@/lib/utils'
+import { rateLimit, tooManyRequests } from '@/lib/rateLimit'
 
 const MONTANT_MAX = 1000000 // 1 000 000 FCFA maximum
 
@@ -24,6 +25,10 @@ export async function POST(req: NextRequest) {
   if (!session) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
   }
+
+  // Anti-abus : limite la création de factures de paiement
+  const rl = rateLimit(`recharge:${session.user.id}`, 10, 10 * 60 * 1000)
+  if (!rl.allowed) return tooManyRequests(rl.retryAfterSec)
 
   try {
     const body = await req.json()

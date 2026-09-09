@@ -59,6 +59,8 @@ export async function POST(req: NextRequest) {
             sender: message.sender,
             timestamp: new Date().toISOString(),
           }),
+          // Timeout 5s pour éviter qu'un webhook client lent ne bloque
+          signal: AbortSignal.timeout(5000),
         }).catch((e) => console.warn(`[DLR] Échec forward: ${e.message}`))
       }
     }

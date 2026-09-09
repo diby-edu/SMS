@@ -161,12 +161,41 @@ export function isValidSenderName(name: string): boolean {
 // SMS UTILS
 // ============================================================
 
-/** Calcule le nombre de parties SMS en fonction du contenu */
+// Jeu de caractères GSM 03.38 (1 unité) et extension (2 unités)
+const GSM_BASIC =
+  "@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !\"#¤%&'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà"
+const GSM_EXTENDED = "^{}\\[~]|€"
+
+/**
+ * Calcule le nombre de segments SMS réellement facturés par l'opérateur.
+ * - GSM-7 (texte simple) : 160 caractères / segment (153 en multi-segment).
+ * - UCS-2 (dès qu'un caractère hors GSM est présent, ex: emoji) : 70 / 67.
+ * Un accent (é, à…) reste GSM-7, mais un emoji bascule tout le message en UCS-2.
+ */
 export function getSMSPartCount(content: string): number {
-  const length = content.length
-  if (length === 0) return 0
-  if (length <= 160) return 1
-  return Math.ceil(length / 153)
+  if (!content) return 0
+
+  let units = 0
+  let isGsm = true
+  for (let i = 0; i < content.length; i++) {
+    const ch = content[i]
+    if (GSM_BASIC.indexOf(ch) !== -1) units += 1
+    else if (GSM_EXTENDED.indexOf(ch) !== -1) units += 2
+    else {
+      isGsm = false
+      break
+    }
+  }
+
+  if (isGsm) {
+    if (units <= 160) return 1
+    return Math.ceil(units / 153)
+  }
+
+  // UCS-2 : on compte en unités de code UTF-16 (ce que compte l'opérateur)
+  const len = content.length
+  if (len <= 70) return 1
+  return Math.ceil(len / 67)
 }
 
 /** Remplace les champs dynamiques dans un message de campagne */

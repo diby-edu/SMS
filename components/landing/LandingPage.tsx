@@ -204,7 +204,7 @@ function Hero() {
           style={{ animation: 'fadeSlideUp 0.5s ease both' }}
         >
           <span className="w-1.5 h-1.5 rounded-full bg-[#00D4FF] animate-pulse" />
-          Plateforme SMS N°1 en Côte d'Ivoire
+          Plateforme SMS pour les entreprises ivoiriennes
         </div>
 
         <h1
@@ -825,8 +825,30 @@ export default function LandingPage() {
   }, [session, status, router])
 
   // Pendant la vérification de session, afficher la page normalement
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'TextoPro',
+    applicationCategory: 'BusinessApplication',
+    operatingSystem: 'Web',
+    description:
+      "Plateforme SMS professionnelle en Côte d'Ivoire : SMS marketing, transactionnel et OTP via API.",
+    offers: {
+      '@type': 'Offer',
+      price: '20',
+      priceCurrency: 'XOF',
+      description: 'À partir de 20 FCFA par SMS',
+    },
+    areaServed: 'CI',
+    url: 'https://sms.numerik360.com',
+  }
+
   return (
     <div className="min-h-screen bg-[#0A0A0F] text-white font-sans">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <Navbar />
       <main>
         <Hero />

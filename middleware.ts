@@ -48,7 +48,9 @@ export const config = {
     // Routes admin
     '/admin/:path*',
     // Routes API protégées (hors auth et webhooks)
-    '/api/sms/:path*',
+    // NB: on ne protège QUE /api/sms/send (session). /api/sms/public s'authentifie
+    // par clé API (X-API-Key) et ne doit PAS passer par ce middleware.
+    '/api/sms/send',
     '/api/campaigns/:path*',
     '/api/contacts/:path*',
     '/api/balance/:path*',

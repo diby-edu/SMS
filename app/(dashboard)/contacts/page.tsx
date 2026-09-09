@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import toast from 'react-hot-toast'
-import * as XLSX from 'xlsx'
 import Papa from 'papaparse'
 import {
   Users,
@@ -317,8 +316,9 @@ export default function ContactsPage() {
       })
     } else if (ext === 'xlsx' || ext === 'xls') {
       const reader = new FileReader()
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         try {
+          const XLSX = await import('xlsx')
           const data = new Uint8Array(e.target?.result as ArrayBuffer)
           const wb = XLSX.read(data, { type: 'array' })
           const sheet = wb.Sheets[wb.SheetNames[0]]

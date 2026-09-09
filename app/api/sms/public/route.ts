@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendSingleSMS, calculateSMSParts } from '@/lib/letexto'
+import { rateLimit, getClientIp, tooManyRequests } from '@/lib/rateLimit'
 
 export async function POST(req: NextRequest) {
   try {
@@ -45,6 +46,12 @@ export async function POST(req: NextRequest) {
         { status: 402 }
       )
     }
+
+    // ---- Rate limiting (anti-abus) : 60 SMS / min par clé + garde par IP ----
+    const rl = rateLimit(`sms-pub:${keyRecord.id}`, 60, 60 * 1000)
+    if (!rl.allowed) return tooManyRequests(rl.retryAfterSec)
+    const rlIp = rateLimit(`sms-pub-ip:${getClientIp(req)}`, 120, 60 * 1000)
+    if (!rlIp.allowed) return tooManyRequests(rlIp.retryAfterSec)
 
     // ---- Validation du body ----
     const body = await req.json()
@@ -147,6 +154,22 @@ export async function POST(req: NextRequest) {
       },
     })
 
+    // ---- Débit atomique du solde AVANT l'envoi (anti race condition) ----
+    const debit = await prisma.user.updateMany({
+      where: { id: keyRecord.user.id, is_active: true, solde_sms: { gte: costSms } },
+      data: { solde_sms: { decrement: costSms } },
+    })
+    if (debit.count === 0) {
+      await prisma.message.update({
+        where: { id: messageRecord.id },
+        data: { statut: 'FAILED' },
+      })
+      return NextResponse.json(
+        { success: false, message: `Solde insuffisant. Ce message coûte ${costSms} SMS.` },
+        { status: 402 }
+      )
+    }
+
     // ---- Envoi via LeTexto ----
     try {
       const result = await sendSingleSMS({
@@ -160,22 +183,23 @@ export async function POST(req: NextRequest) {
         data: { statut: 'SENT', letexto_id: result.id?.toString() ?? null },
       })
     } catch (smsError) {
-      await prisma.message.update({
-        where: { id: messageRecord.id },
-        data: { statut: 'FAILED' },
-      })
+      // Envoi échoué → remboursement (ne pas facturer un échec) + marquer FAILED
+      await prisma.$transaction([
+        prisma.user.update({
+          where: { id: keyRecord.user.id },
+          data: { solde_sms: { increment: costSms } },
+        }),
+        prisma.message.update({
+          where: { id: messageRecord.id },
+          data: { statut: 'FAILED' },
+        }),
+      ])
       console.error('[SMS/public]', smsError)
       return NextResponse.json(
         { success: false, message: "Erreur lors de l'envoi du SMS. Réessayez." },
         { status: 500 }
       )
     }
-
-    // ---- Déduction du solde ----
-    await prisma.user.update({
-      where: { id: keyRecord.user.id },
-      data: { solde_sms: { decrement: costSms } },
-    })
 
     // ---- Mise à jour last_used ----
     await prisma.apiKey.update({

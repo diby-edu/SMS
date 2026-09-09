@@ -2,6 +2,7 @@ import { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
+import { rateLimit } from '@/lib/rateLimit'
 
 export const authOptions: NextAuthOptions = {
   // Stratégie JWT — pas de session en base de données
@@ -24,13 +25,24 @@ export const authOptions: NextAuthOptions = {
         password: { label: 'Mot de passe', type: 'password' },
       },
 
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) {
           throw new Error('Email et mot de passe requis')
         }
 
+        // Anti brute-force : limite par IP et par email
+        const xff = (req?.headers?.['x-forwarded-for'] as string | undefined) || ''
+        const ip = xff.split(',')[0].trim() || 'unknown'
+        const email = credentials.email.toLowerCase().trim()
+        if (!rateLimit(`login-ip:${ip}`, 20, 10 * 60 * 1000).allowed) {
+          throw new Error('Trop de tentatives de connexion. Réessayez dans quelques minutes.')
+        }
+        if (!rateLimit(`login-email:${email}`, 8, 10 * 60 * 1000).allowed) {
+          throw new Error('Trop de tentatives pour ce compte. Réessayez dans quelques minutes.')
+        }
+
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email.toLowerCase().trim() },
+          where: { email },
         })
 
         if (!user) {

@@ -5,15 +5,17 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import crypto from 'crypto'
 import { prisma } from '@/lib/prisma'
 import { sendSingleSMS } from '@/lib/letexto'
+import { rateLimit, getClientIp, tooManyRequests } from '@/lib/rateLimit'
 
 const OTP_EXPIRY_MINUTES = 5
 const MAX_ATTEMPTS = 3
 
-// Génère un code numérique à 6 chiffres
+// Génère un code numérique à 6 chiffres avec un CSPRNG (le code est un secret d'auth)
 function generateOtpCode(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString()
+  return crypto.randomInt(100000, 1000000).toString()
 }
 
 export async function POST(req: NextRequest) {
@@ -75,6 +77,19 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // ---- Anti SMS-bombing : max 5 OTP / 10 min par (clé, numéro) + garde par IP ----
+    const rl = rateLimit(`otp:${keyRecord.id}:${phoneClean}`, 5, 10 * 60 * 1000)
+    if (!rl.allowed) {
+      return tooManyRequests(
+        rl.retryAfterSec,
+        'Trop de demandes de code pour ce numéro. Réessayez dans quelques minutes.'
+      )
+    }
+    const rlIp = rateLimit(`otp-ip:${getClientIp(req)}`, 30, 10 * 60 * 1000)
+    if (!rlIp.allowed) {
+      return tooManyRequests(rlIp.retryAfterSec)
+    }
+
     // ---- Résolution du sender ----
     // Priorité : body sender > default_otp_sender de la clé API
     let senderName: string | null = null
@@ -134,6 +149,19 @@ export async function POST(req: NextRequest) {
       },
     })
 
+    // ---- Débit atomique du solde AVANT l'envoi (anti race condition) ----
+    const debit = await prisma.user.updateMany({
+      where: { id: keyRecord.user.id, is_active: true, solde_sms: { gte: 1 } },
+      data: { solde_sms: { decrement: 1 } },
+    })
+    if (debit.count === 0) {
+      await prisma.otpCode.update({ where: { id: otpRecord.id }, data: { statut: 'EXPIRED' } })
+      return NextResponse.json(
+        { success: false, message: 'Solde SMS insuffisant. Veuillez recharger votre compte TextoPro.' },
+        { status: 402 }
+      )
+    }
+
     // ---- Envoi du SMS via LeTexto ----
     const smsContent = `Votre code de vérification : ${code}\nValable ${OTP_EXPIRY_MINUTES} minutes. Ne le partagez pas.`
 
@@ -144,23 +172,20 @@ export async function POST(req: NextRequest) {
         content: smsContent,
       })
     } catch (smsError) {
-      // Annuler le code OTP si l'envoi échoue
-      await prisma.otpCode.update({
-        where: { id: otpRecord.id },
-        data: { statut: 'EXPIRED' },
-      })
+      // Envoi échoué → rembourser (règle métier : ne pas facturer un échec) + annuler le code
+      await prisma.$transaction([
+        prisma.user.update({
+          where: { id: keyRecord.user.id },
+          data: { solde_sms: { increment: 1 } },
+        }),
+        prisma.otpCode.update({ where: { id: otpRecord.id }, data: { statut: 'EXPIRED' } }),
+      ])
       console.error('[OTP] Erreur envoi SMS:', smsError)
       return NextResponse.json(
         { success: false, message: "Erreur lors de l'envoi du SMS. Réessayez." },
         { status: 500 }
       )
     }
-
-    // ---- Déduction du solde (1 SMS) ----
-    await prisma.user.update({
-      where: { id: keyRecord.user.id },
-      data: { solde_sms: { decrement: 1 } },
-    })
 
     // ---- Mise à jour de last_used sur la clé API ----
     await prisma.apiKey.update({

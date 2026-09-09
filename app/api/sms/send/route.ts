@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { sendSingleSMS, calculateSMSParts } from '@/lib/letexto'
+import { rateLimit, tooManyRequests } from '@/lib/rateLimit'
 
 // ============================================================
 // VALIDATION
@@ -51,13 +52,17 @@ export async function POST(req: NextRequest) {
     const { from, to, content } = result.data
     const userId = session.user.id
 
-    // Vérifier que le sender appartient à l'utilisateur et est approuvé
+    // Rate limiting par utilisateur (anti-abus)
+    const rl = rateLimit(`sms-send:${userId}`, 30, 60 * 1000)
+    if (!rl.allowed) return tooManyRequests(rl.retryAfterSec)
+
+    // Vérifier que le sender appartient à l'utilisateur, est approuvé, et n'est PAS de type OTP
     const approvedSender = await prisma.sender.findFirst({
-      where: { user_id: userId, nom: from, statut: 'APPROVED' },
+      where: { user_id: userId, nom: from, statut: 'APPROVED', type_message: { not: 'OTP' } },
     })
     if (!approvedSender) {
       return NextResponse.json(
-        { error: 'Expéditeur invalide ou non approuvé' },
+        { error: 'Expéditeur invalide, non approuvé, ou de type OTP (réservé aux codes OTP)' },
         { status: 403 }
       )
     }
@@ -65,52 +70,40 @@ export async function POST(req: NextRequest) {
     // Calcul du nombre de SMS (parts)
     const partCount = calculateSMSParts(content)
 
-    // Vérification du solde en base (source de vérité)
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { solde_sms: true, is_active: true },
+    // Débit atomique anti-race : ne passe que si compte actif ET solde suffisant
+    const debit = await prisma.user.updateMany({
+      where: { id: userId, is_active: true, solde_sms: { gte: partCount } },
+      data: { solde_sms: { decrement: partCount } },
     })
-
-    if (!user) {
-      return NextResponse.json({ error: 'Utilisateur introuvable' }, { status: 404 })
-    }
-
-    if (!user.is_active) {
-      return NextResponse.json({ error: 'Compte désactivé' }, { status: 403 })
-    }
-
-    if (user.solde_sms < partCount) {
+    if (debit.count === 0) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { solde_sms: true, is_active: true },
+      })
+      if (!user?.is_active) {
+        return NextResponse.json({ error: 'Compte désactivé' }, { status: 403 })
+      }
       return NextResponse.json(
         {
-          error: `Solde insuffisant. Ce message nécessite ${partCount} SMS, vous en avez ${user.solde_sms}.`,
-          solde_actuel: user.solde_sms,
+          error: `Solde insuffisant. Ce message nécessite ${partCount} SMS, vous en avez ${user?.solde_sms ?? 0}.`,
+          solde_actuel: user?.solde_sms ?? 0,
           required: partCount,
         },
         { status: 402 }
       )
     }
 
-    // Débit du solde AVANT l'envoi (transaction atomique)
-    // Si LeTexto échoue, on ne rembourse pas (décision métier confirmée)
-    const [updatedUser, message] = await prisma.$transaction([
-      // Déduire le solde
-      prisma.user.update({
-        where: { id: userId },
-        data: { solde_sms: { decrement: partCount } },
-        select: { solde_sms: true },
-      }),
-      // Créer l'enregistrement du message en PENDING
-      prisma.message.create({
-        data: {
-          user_id: userId,
-          sender: from,
-          destinataire: to,
-          contenu: content,
-          statut: 'PENDING',
-          cost_sms: partCount,
-        },
-      }),
-    ])
+    // Créer l'enregistrement du message en PENDING
+    const message = await prisma.message.create({
+      data: {
+        user_id: userId,
+        sender: from,
+        destinataire: to,
+        contenu: content,
+        statut: 'PENDING',
+        cost_sms: partCount,
+      },
+    })
 
     // Appel API LeTexto (côté serveur uniquement)
     let letextoResponse
@@ -131,28 +124,39 @@ export async function POST(req: NextRequest) {
         },
       })
     } catch (letextoError) {
-      // LeTexto a échoué — on log mais on ne rembourse pas
+      // Envoi échoué → remboursement (ne pas facturer un échec) + marquer FAILED
       console.error('[SMS Send] Erreur LeTexto:', letextoError)
-      await prisma.message.update({
-        where: { id: message.id },
-        data: { statut: 'FAILED' },
-      })
+      await prisma.$transaction([
+        prisma.user.update({
+          where: { id: userId },
+          data: { solde_sms: { increment: partCount } },
+        }),
+        prisma.message.update({
+          where: { id: message.id },
+          data: { statut: 'FAILED' },
+        }),
+      ])
 
       return NextResponse.json(
         {
-          error: 'Le SMS a été débité mais l\'envoi a échoué côté opérateur. Contactez le support.',
+          error: "L'envoi a échoué côté opérateur. Vous n'avez pas été débité. Réessayez.",
           message_id: message.id,
         },
         { status: 502 }
       )
     }
 
+    const fresh = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { solde_sms: true },
+    })
+
     return NextResponse.json({
       success: true,
       message_id: message.id,
       letexto_id: letextoResponse.id,
       parts: letextoResponse.partCount,
-      solde_restant: updatedUser.solde_sms,
+      solde_restant: fresh?.solde_sms ?? 0,
     })
   } catch (error) {
     console.error('[SMS Send] Erreur:', error)

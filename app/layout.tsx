@@ -27,6 +27,7 @@ const dmSans = DM_Sans({
 // ============================================================
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXTAUTH_URL || 'https://sms.numerik360.com'),
   title: {
     default: 'TextoPro — Plateforme SMS Marketing',
     template: '%s | TextoPro',
@@ -43,7 +44,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1, // Désactive le zoom sur mobile pour une meilleure UX
+  // Zoom laissé activé (accessibilité WCAG 1.4.4)
   themeColor: '#0A0A0F',
 }
 

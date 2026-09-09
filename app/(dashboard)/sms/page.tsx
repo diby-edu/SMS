@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import toast from 'react-hot-toast'
-import * as XLSX from 'xlsx'
 import Papa from 'papaparse'
 import {
   Send,
@@ -146,8 +145,9 @@ export default function SMSPage() {
       fetch('/api/contacts/lists').then((r) => r.json()),
       fetch('/api/config/prix').then((r) => r.json()),
     ]).then(([sendersData, listsData, prixData]) => {
+      // Senders approuvés hors OTP (les senders OTP sont réservés aux codes OTP)
       const approuves = (sendersData.senders || []).filter(
-        (s: Sender) => s.statut === 'APPROVED'
+        (s: Sender) => s.statut === 'APPROVED' && s.type_message !== 'OTP'
       )
       setSenders(approuves)
       if (approuves.length > 0) setSenderNom(approuves[0].nom)
@@ -264,8 +264,9 @@ export default function SMSPage() {
       })
     } else if (ext === 'xlsx' || ext === 'xls') {
       const reader = new FileReader()
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         try {
+          const XLSX = await import('xlsx')
           const data = new Uint8Array(e.target?.result as ArrayBuffer)
           const wb = XLSX.read(data, { type: 'array' })
           const sheet = wb.Sheets[wb.SheetNames[0]]
@@ -328,7 +329,6 @@ export default function SMSPage() {
           label: label.trim() || `Envoi du ${new Date().toLocaleDateString('fr-FR')}`,
           sender: senderNom,
           content: content.trim(),
-          ...(scheduledAt && { scheduled_at: scheduledAt }),
         }
         if (source === 'groupe') body.group_id = groupId
         else if (source === 'fichier') body.contacts = fichierContacts
@@ -726,8 +726,12 @@ export default function SMSPage() {
                   value={scheduledAt}
                   onChange={(e) => setScheduledAt(e.target.value)}
                   min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
-                  className={cn('input', errors.scheduledAt && 'border-danger')}
+                  className={cn('input opacity-60 cursor-not-allowed', errors.scheduledAt && 'border-danger')}
+                  disabled
                 />
+                <p className="mt-1.5 text-xs text-foreground-subtle">
+                  Programmation bientôt disponible — l&apos;envoi est immédiat pour l&apos;instant.
+                </p>
                 {scheduledAt && !errors.scheduledAt && (
                   <p className="mt-1.5 text-xs text-secondary font-medium">
                     Envoi programmé le {new Date(scheduledAt).toLocaleString('fr-FR')}
