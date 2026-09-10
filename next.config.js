@@ -63,7 +63,11 @@ module.exports = process.env.NEXT_PUBLIC_SENTRY_DSN
       project: process.env.SENTRY_PROJECT,
       authToken: process.env.SENTRY_AUTH_TOKEN,
       disableLogger: true,
-      // Upload des source maps seulement si un token d'auth est fourni
-      sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+      // Upload des source maps seulement si un token d'auth est fourni,
+      // puis suppression du serveur public (ne pas exposer le code source)
+      sourcemaps: {
+        disable: !process.env.SENTRY_AUTH_TOKEN,
+        deleteSourcemapsAfterUpload: true,
+      },
     })
   : nextConfig
