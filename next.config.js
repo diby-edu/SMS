@@ -22,6 +22,8 @@ const nextConfig = {
 
   experimental: {
     serverComponentsExternalPackages: ['@prisma/client', 'bcryptjs'],
+    // Active instrumentation.ts (chargement de la config Sentry serveur/edge)
+    instrumentationHook: true,
   },
   images: {
     remotePatterns: [],
@@ -51,4 +53,17 @@ const nextConfig = {
   },
 }
 
-module.exports = nextConfig
+// Sentry n'enveloppe le build QUE si un DSN est configuré (sinon aucune surcharge)
+const { withSentryConfig } = require('@sentry/nextjs')
+
+module.exports = process.env.NEXT_PUBLIC_SENTRY_DSN
+  ? withSentryConfig(nextConfig, {
+      silent: true,
+      org: process.env.SENTRY_ORG,
+      project: process.env.SENTRY_PROJECT,
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+      disableLogger: true,
+      // Upload des source maps seulement si un token d'auth est fourni
+      sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+    })
+  : nextConfig
